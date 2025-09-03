@@ -1,0 +1,24 @@
+name: Daily Standup
+
+on:
+  workflow_dispatch:
+    inputs:
+      team:
+        description: 'Team name for standup'
+        required: false
+        default: 'development'
+        type: string
+
+jobs:
+  standup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Run standup process
+        run: |
+          echo "🚀 Starting daily standup for team: ${{ github.event.inputs.team || 'development' }}"
+          echo "📅 Date: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "👤 Triggered by: ${{ github.actor }}"
+          echo "✅ Standup workflow completed successfully"
