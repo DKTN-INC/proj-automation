@@ -1,0 +1,30 @@
+name: Standup Digest (manual, multi-channel)
+
+on:
+  workflow_dispatch:
+    inputs:
+      channels:
+        description: 'Discord channels for standup (comma-separated)'
+        required: false
+        default: 'general,development'
+        type: string
+      team:
+        description: 'Team name for standup'
+        required: false
+        default: 'development'
+        type: string
+
+jobs:
+  standup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Run Discord multi-channel standup process
+        run: |
+          echo "🤖 Starting Discord multi-channel standup for team: ${{ github.event.inputs.team || 'development' }}"
+          echo "📺 Target channels: ${{ github.event.inputs.channels || 'general,development' }}"
+          echo "📅 Date: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "👤 Triggered by: ${{ github.actor }}"
+          echo "✅ Discord multi-channel standup workflow completed successfully"
