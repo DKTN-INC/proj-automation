@@ -1,0 +1,206 @@
+name: Markdown to PDF Automation
+
+on:
+  push:
+    paths:
+      - 'docs/ideasheets/*.md'
+      - '!docs/ideasheets/README.md'
+  pull_request:
+    paths:
+      - 'docs/ideasheets/*.md'
+      - '!docs/ideasheets/README.md'
+  workflow_dispatch:
+    inputs:
+      force_all:
+        description: 'Convert all markdown files (not just changed ones)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  convert-and-publish:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Need previous commit for diff
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wkhtmltopdf
+          
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install markdown pdfkit requests
+          
+      - name: Make scripts executable
+        run: |
+          chmod +x scripts/md_to_pdf.py
+          chmod +x scripts/send_pdf_to_discord.py
+          
+      - name: Get changed files
+        id: changed-files
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.force_all }}" = "true" ]; then
+            echo "Converting all markdown files..."
+            find docs/ideasheets -name "*.md" ! -name "README.md" > changed_files.txt
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "PR mode: checking changed files..."
+            git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep "^docs/ideasheets/.*\.md$" | grep -v "README.md" > changed_files.txt || touch changed_files.txt
+          else
+            echo "Push mode: checking changed files..."
+            git diff --name-only HEAD~1 HEAD | grep "^docs/ideasheets/.*\.md$" | grep -v "README.md" > changed_files.txt || touch changed_files.txt
+          fi
+          
+          if [ -s changed_files.txt ]; then
+            echo "Found changed files:"
+            cat changed_files.txt
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "No relevant markdown files changed"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Create output directory
+        if: steps.changed-files.outputs.has_changes == 'true'
+        run: |
+          mkdir -p output/pdfs
+          
+      - name: Convert Markdown to PDF
+        if: steps.changed-files.outputs.has_changes == 'true'
+        run: |
+          echo "🔄 Converting markdown files to PDF..."
+          converted_files=""
+          
+          while IFS= read -r file; do
+            if [ -f "$file" ]; then
+              echo "Converting: $file"
+              python scripts/md_to_pdf.py "$file" -o output/pdfs
+              pdf_name=$(basename "$file" .md).pdf
+              if [ -f "output/pdfs/$pdf_name" ]; then
+                echo "✅ Successfully converted: $pdf_name"
+                converted_files="$converted_files output/pdfs/$pdf_name"
+              else
+                echo "❌ Failed to convert: $file"
+              fi
+            fi
+          done < changed_files.txt
+          
+          echo "converted_files=$converted_files" >> $GITHUB_ENV
+          
+      - name: List generated PDFs
+        if: steps.changed-files.outputs.has_changes == 'true'
+        run: |
+          echo "Generated PDF files:"
+          ls -la output/pdfs/ || echo "No PDFs generated"
+          
+      - name: Send PDFs to Discord
+        if: steps.changed-files.outputs.has_changes == 'true' && env.converted_files != ''
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "⚠️ DISCORD_WEBHOOK_URL secret not set, skipping Discord notification"
+            exit 0
+          fi
+          
+          if [ -n "$converted_files" ]; then
+            echo "📤 Sending PDFs to Discord..."
+            
+            # Count files
+            file_count=$(echo $converted_files | wc -w)
+            
+            if [ $file_count -eq 1 ]; then
+              message="📄 New idea sheet published from commit ${{ github.sha }}"
+            else
+              message="📚 $file_count new idea sheets published from commit ${{ github.sha }}"
+            fi
+            
+            python scripts/send_pdf_to_discord.py \
+              $converted_files \
+              --webhook "$DISCORD_WEBHOOK_URL" \
+              --message "$message" \
+              --username "Idea Sheet Bot" \
+              --verbose
+              
+            echo "✅ PDFs sent to Discord successfully"
+          else
+            echo "ℹ️ No PDFs to send"
+          fi
+          
+      - name: Upload PDFs as artifacts
+        if: steps.changed-files.outputs.has_changes == 'true'
+        uses: actions/upload-artifact@v3
+        with:
+          name: idea-sheet-pdfs-${{ github.sha }}
+          path: output/pdfs/*.pdf
+          retention-days: 30
+          
+      - name: Send completion notification
+        if: always() && steps.changed-files.outputs.has_changes == 'true'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "⚠️ DISCORD_WEBHOOK_URL secret not set, skipping notification"
+            exit 0
+          fi
+          
+          if [ "${{ job.status }}" = "success" ]; then
+            title="✅ PDF Generation Complete"
+            message="Successfully processed idea sheets from commit [\`${GITHUB_SHA:0:7}\`](${{ github.event.head_commit.url || github.event.pull_request.html_url }})"
+            color=3066993  # Green
+          else
+            title="❌ PDF Generation Failed"
+            message="Failed to process idea sheets from commit [\`${GITHUB_SHA:0:7}\`](${{ github.event.head_commit.url || github.event.pull_request.html_url }})"
+            color=15158332  # Red
+          fi
+          
+          python scripts/send_pdf_to_discord.py \
+            --webhook "$DISCORD_WEBHOOK_URL" \
+            --notify-only \
+            --message "$message" || echo "Failed to send completion notification"
+            
+      - name: Comment on PR (if applicable)
+        if: github.event_name == 'pull_request' && steps.changed-files.outputs.has_changes == 'true'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let comment = '## 📄 PDF Generation Results\n\n';
+            
+            if (fs.existsSync('changed_files.txt')) {
+              const changedFiles = fs.readFileSync('changed_files.txt', 'utf8').trim().split('\n').filter(f => f);
+              
+              if (changedFiles.length > 0) {
+                comment += `✅ Successfully processed ${changedFiles.length} idea sheet(s):\n\n`;
+                changedFiles.forEach(file => {
+                  const filename = file.replace('docs/ideasheets/', '').replace('.md', '');
+                  comment += `- 📋 \`${filename}.md\` → \`${filename}.pdf\`\n`;
+                });
+                
+                comment += '\n📤 PDFs have been sent to the configured Discord channel.\n';
+                comment += '💾 PDFs are also available as workflow artifacts.\n';
+              } else {
+                comment += '📭 No idea sheet files were changed in this PR.\n';
+              }
+            } else {
+              comment += '⚠️ Could not determine changed files.\n';
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
