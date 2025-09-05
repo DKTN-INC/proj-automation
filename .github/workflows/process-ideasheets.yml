@@ -97,10 +97,10 @@ jobs:
         if: steps.changed-files.outputs.has_changes == 'true'
         run: |
           echo "📝 Processing ideasheets with enhanced features..."
-          echo "🎯 Mode: ${{ github.event.inputs.output_format || 'both' }}"
-
+          MODE="${{ github.event.inputs.output_format || 'both' }}"
+          echo "🎯 Mode: $MODE"
           PROCESS_ARGS=""
-          case "${{ github.event.inputs.output_format }}" in
+          case "$MODE" in
             "html-only")
               PROCESS_ARGS="--html-only"
               ;;
@@ -111,11 +111,11 @@ jobs:
               # Default to both
               ;;
           esac
-
-          if [ "${{ steps.changed-files.outputs.changed_files }}" = "all" ]; then
+          CHANGED_FILES="${{ steps.changed-files.outputs.changed_files }}"
+          if [ "$CHANGED_FILES" = "all" ]; then
             ./scripts/process_ideasheets.sh --verbose $PROCESS_ARGS
           else
-            for file in ${{ steps.changed-files.outputs.changed_files }}; do
+            for file in $CHANGED_FILES; do
               if [ -f "$file" ]; then
                 echo "Processing: $file"
                 python scripts/markdown_processor.py "$file" -o output -v $PROCESS_ARGS
