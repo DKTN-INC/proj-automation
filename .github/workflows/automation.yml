@@ -139,7 +139,7 @@ jobs:
           
       - name: Upload PDFs as artifacts
         if: steps.changed-files.outputs.has_changes == 'true'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: idea-sheet-pdfs-${{ github.sha }}
           path: output/pdfs/*.pdf
