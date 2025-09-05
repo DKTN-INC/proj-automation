@@ -206,3 +206,4 @@ jobs:
           if [ -d "output" ]; then
             echo "   - Files generated: $(find output -type f | wc -l)"
             echo "   - Output size: $(du -sh output | cut -f1)"
+          fi
