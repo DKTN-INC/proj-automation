@@ -13,18 +13,454 @@ on:
         required: false
         default: 'development'
         type: string
+      format:
+        description: 'Output format for standup digest'
+        required: false
+        default: 'markdown'
+        type: choice
+        options:
+          - 'markdown'
+          - 'html'
+          - 'json'
+      include_analytics:
+        description: 'Include team analytics and insights'
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   standup:
     runs-on: ubuntu-latest
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         
-      - name: Run Discord multi-channel standup process
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
         run: |
-          echo "🤖 Starting Discord multi-channel standup for team: ${{ github.event.inputs.team || 'development' }}"
-          echo "📺 Target channels: ${{ github.event.inputs.channels || 'general,development' }}"
-          echo "📅 Date: $(date '+%Y-%m-%d %H:%M:%S')"
-          echo "👤 Triggered by: ${{ github.actor }}"
-          echo "✅ Discord multi-channel standup workflow completed successfully"
+          python -m pip install --upgrade pip
+          pip install requests python-dateutil markdown jinja2 pytz
+      
+      - name: Validate and parse inputs
+        run: |
+          echo "🔍 Validating multi-channel standup inputs..."
+          
+          CHANNELS="${{ github.event.inputs.channels || 'general,development' }}"
+          TEAM="${{ github.event.inputs.team || 'development' }}"
+          FORMAT="${{ github.event.inputs.format || 'markdown' }}"
+          INCLUDE_ANALYTICS="${{ github.event.inputs.include_analytics || 'true' }}"
+          
+          # Validate team name
+          if [[ ! "$TEAM" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+            echo "❌ Error: Invalid team name format: $TEAM"
+            exit 1
+          fi
+          
+          # Validate and parse channels
+          echo "Parsing channels: $CHANNELS"
+          IFS=',' read -ra CHANNEL_ARRAY <<< "$CHANNELS"
+          VALID_CHANNELS=""
+          
+          for channel in "${CHANNEL_ARRAY[@]}"; do
+            # Trim whitespace and validate channel name
+            channel=$(echo "$channel" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            if [[ "$channel" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+              if [ -z "$VALID_CHANNELS" ]; then
+                VALID_CHANNELS="$channel"
+              else
+                VALID_CHANNELS="$VALID_CHANNELS,$channel"
+              fi
+            else
+              echo "⚠️  Warning: Skipping invalid channel name: $channel"
+            fi
+          done
+          
+          if [ -z "$VALID_CHANNELS" ]; then
+            echo "❌ Error: No valid channels specified"
+            exit 1
+          fi
+          
+          echo "✅ Valid channels: $VALID_CHANNELS"
+          echo "✅ Team: $TEAM"
+          echo "✅ Format: $FORMAT"
+          
+          # Set environment variables
+          echo "CHANNELS=$VALID_CHANNELS" >> $GITHUB_ENV
+          echo "TEAM=$TEAM" >> $GITHUB_ENV
+          echo "FORMAT=$FORMAT" >> $GITHUB_ENV
+          echo "INCLUDE_ANALYTICS=$INCLUDE_ANALYTICS" >> $GITHUB_ENV
+        
+      - name: Create multi-channel standup structure
+        run: |
+          echo "🏗️  Creating multi-channel standup structure..."
+          
+          # Create output directory
+          mkdir -p multi-channel-standup
+          
+          # Generate metadata for each channel
+          IFS=',' read -ra CHANNEL_ARRAY <<< "$CHANNELS"
+          for channel in "${CHANNEL_ARRAY[@]}"; do
+            mkdir -p "multi-channel-standup/$channel"
+            
+            cat > "multi-channel-standup/$channel/metadata.json" << EOF
+          {
+            "channel": "$channel",
+            "team": "$TEAM",
+            "date": "$(date -u '+%Y-%m-%d')",
+            "time": "$(date -u '+%H:%M:%S UTC')",
+            "triggered_by": "${{ github.actor }}",
+            "repository": "${{ github.repository }}",
+            "commit": "${{ github.sha }}",
+            "workflow_run": "${{ github.run_id }}",
+            "include_analytics": $INCLUDE_ANALYTICS,
+            "output_format": "$FORMAT"
+          }
+          EOF
+            
+            echo "✅ Created structure for channel: $channel"
+          done
+          
+          # Create master metadata
+          cat > multi-channel-standup/master_metadata.json << EOF
+          {
+            "channels": ["$(echo "$CHANNELS" | sed 's/,/", "/g')"],
+            "team": "$TEAM",
+            "total_channels": $(echo "$CHANNELS" | tr ',' '\n' | wc -l),
+            "generated_at": "$(date -u '+%Y-%m-%d %H:%M:%S UTC')",
+            "triggered_by": "${{ github.actor }}",
+            "format": "$FORMAT"
+          }
+          EOF
+          
+          echo "✅ Multi-channel structure created"
+      
+      - name: Collect repository insights
+        if: env.INCLUDE_ANALYTICS == 'true'
+        run: |
+          echo "📊 Collecting repository insights for analytics..."
+          
+          python3 - << 'EOF'
+          import json
+          import subprocess
+          import os
+          from datetime import datetime, timedelta
+          
+          def run_git_command(cmd):
+              """Run git command and return output"""
+              try:
+                  result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                  return result.stdout.strip() if result.returncode == 0 else ""
+              except Exception:
+                  return ""
+          
+          # Collect various time periods
+          periods = {
+              "24h": "24 hours ago",
+              "7d": "7 days ago",
+              "30d": "30 days ago"
+          }
+          
+          insights = {
+              "collection_time": datetime.utcnow().isoformat() + "Z",
+              "periods": {}
+          }
+          
+          for period, since in periods.items():
+              since_date = datetime.utcnow() - timedelta(
+                  hours=24 if period == "24h" else 
+                  days=7 if period == "7d" else 30
+              )
+              since_str = since_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+              
+              # Get commit count
+              commit_count = run_git_command(f'git rev-list --count --since="{since_str}" HEAD')
+              
+              # Get unique authors
+              authors = run_git_command(f'git shortlog -sn --since="{since_str}" HEAD')
+              author_count = len([line for line in authors.split('\n') if line.strip()])
+              
+              # Get files changed
+              files_changed = run_git_command(f'git diff --name-only --since="{since_str}" HEAD')
+              file_count = len([f for f in files_changed.split('\n') if f.strip()])
+              
+              insights["periods"][period] = {
+                  "commits": int(commit_count) if commit_count.isdigit() else 0,
+                  "authors": author_count,
+                  "files_changed": file_count,
+                  "since": since_str
+              }
+          
+          # Save insights
+          with open('multi-channel-standup/repository_insights.json', 'w') as f:
+              json.dump(insights, f, indent=2)
+          
+          print("✅ Repository insights collected")
+          print(f"Insights: {json.dumps(insights, indent=2)}")
+          EOF
+      
+      - name: Generate channel-specific content
+        run: |
+          echo "📝 Generating content for each channel..."
+          
+          IFS=',' read -ra CHANNEL_ARRAY <<< "$CHANNELS"
+          
+          for channel in "${CHANNEL_ARRAY[@]}"; do
+            echo "Processing channel: $channel"
+            
+            # Generate channel-specific activity
+            python3 - << EOF
+          import json
+          import os
+          
+          channel = "$channel"
+          team = "$TEAM"
+          
+          # Create sample activity data (in real implementation, this would fetch from Discord API)
+          activity = {
+              "channel": channel,
+              "team": team,
+              "message_count_24h": 42,  # Placeholder
+              "active_users_24h": 8,    # Placeholder
+              "top_topics": ["deployment", "bug-fixes", "feature-review"],
+              "sentiment": "positive",
+              "last_activity": "2 hours ago"
+          }
+          
+          with open(f'multi-channel-standup/{channel}/activity.json', 'w') as f:
+              json.dump(activity, f, indent=2)
+          
+          EOF
+          
+            echo "✅ Generated activity for channel: $channel"
+          done
+      
+      - name: Generate multi-channel digest
+        run: |
+          echo "📋 Generating multi-channel digest in $FORMAT format..."
+          
+          case "$FORMAT" in
+            markdown)
+              python3 - << 'EOF'
+          import json
+          import os
+          from datetime import datetime
+          
+          # Read master metadata
+          with open('multi-channel-standup/master_metadata.json', 'r') as f:
+              master_meta = json.load(f)
+          
+          # Read repository insights if available
+          insights = {}
+          if os.path.exists('multi-channel-standup/repository_insights.json'):
+              with open('multi-channel-standup/repository_insights.json', 'r') as f:
+                  insights = json.load(f)
+          
+          # Generate markdown digest
+          content = f"""# Multi-Channel Standup Digest
+          
+          **Team:** {master_meta['team']}  
+          **Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}  
+          **Channels:** {', '.join(master_meta['channels'])}  
+          **Triggered by:** {master_meta.get('triggered_by', 'Unknown')}
+          
+          ## 📊 Repository Activity Summary
+          
+          """
+          
+          if insights and 'periods' in insights:
+              content += "| Period | Commits | Authors | Files Changed |\n"
+              content += "|--------|---------|---------|---------------|\n"
+              for period, data in insights['periods'].items():
+                  content += f"| {period} | {data['commits']} | {data['authors']} | {data['files_changed']} |\n"
+              content += "\n"
+          
+          content += "## 📺 Channel-Specific Activity\n\n"
+          
+          # Process each channel
+          channels = master_meta['channels']
+          for channel in channels:
+              activity_file = f'multi-channel-standup/{channel}/activity.json'
+              if os.path.exists(activity_file):
+                  with open(activity_file, 'r') as f:
+                      activity = json.load(f)
+                  
+                  content += f"""### #{channel}
+          
+          - **Messages (24h):** {activity.get('message_count_24h', 'N/A')}
+          - **Active Users:** {activity.get('active_users_24h', 'N/A')}
+          - **Top Topics:** {', '.join(activity.get('top_topics', []))}
+          - **Sentiment:** {activity.get('sentiment', 'neutral')}
+          - **Last Activity:** {activity.get('last_activity', 'Unknown')}
+          
+          """
+          
+          content += f"""---
+          
+          ## 🔗 Workflow Information
+          
+          - **Repository:** {master_meta.get('repository', 'Unknown')}
+          - **Workflow Run:** #{master_meta.get('workflow_run', 'Unknown')}
+          - **Generated:** {master_meta['generated_at']}
+          
+          *This digest was automatically generated by GitHub Actions*
+          """
+          
+          with open('multi-channel-standup/digest.md', 'w') as f:
+              f.write(content)
+          
+          print("✅ Markdown digest generated")
+          EOF
+              ;;
+            
+            html|json)
+              python3 - << 'EOF'
+          import json
+          import os
+          from datetime import datetime
+          
+          # Read all data
+          with open('multi-channel-standup/master_metadata.json', 'r') as f:
+              master_meta = json.load(f)
+          
+          insights = {}
+          if os.path.exists('multi-channel-standup/repository_insights.json'):
+              with open('multi-channel-standup/repository_insights.json', 'r') as f:
+                  insights = json.load(f)
+          
+          # Collect channel activities
+          channel_activities = {}
+          for channel in master_meta['channels']:
+              activity_file = f'multi-channel-standup/{channel}/activity.json'
+              if os.path.exists(activity_file):
+                  with open(activity_file, 'r') as f:
+                      channel_activities[channel] = json.load(f)
+          
+          format_type = os.environ.get('FORMAT', 'markdown')
+          
+          if format_type == 'html':
+              # Generate HTML
+              html_content = f"""<!DOCTYPE html>
+              <html lang="en">
+              <head>
+                  <meta charset="UTF-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <title>Multi-Channel Standup - {master_meta['team']}</title>
+                  <style>
+                      body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1000px; margin: 0 auto; padding: 2rem; }}
+                      .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; border-radius: 12px; margin-bottom: 2rem; }}
+                      .channel {{ background: #f8f9fa; margin: 1rem 0; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #007bff; }}
+                      .metrics {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 2rem 0; }}
+                      .metric {{ background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; }}
+                      .metric-value {{ font-size: 2em; font-weight: bold; color: #007bff; }}
+                      table {{ width: 100%; border-collapse: collapse; margin: 1rem 0; }}
+                      th, td {{ border: 1px solid #ddd; padding: 0.75rem; text-align: left; }}
+                      th {{ background-color: #f8f9fa; font-weight: 600; }}
+                  </style>
+              </head>
+              <body>
+                  <div class="header">
+                      <h1>🚀 Multi-Channel Standup Digest</h1>
+                      <p><strong>Team:</strong> {master_meta['team']}</p>
+                      <p><strong>Channels:</strong> {', '.join(master_meta['channels'])}</p>
+                      <p><strong>Generated:</strong> {master_meta['generated_at']}</p>
+                  </div>"""
+              
+              if insights and 'periods' in insights:
+                  html_content += """
+                  <h2>📊 Repository Activity</h2>
+                  <div class="metrics">"""
+                  
+                  for period, data in insights['periods'].items():
+                      html_content += f"""
+                      <div class="metric">
+                          <div class="metric-value">{data['commits']}</div>
+                          <div>Commits ({period})</div>
+                      </div>"""
+                  
+                  html_content += "</div>"
+              
+              html_content += "<h2>📺 Channel Activities</h2>"
+              
+              for channel, activity in channel_activities.items():
+                  html_content += f"""
+                  <div class="channel">
+                      <h3>#{channel}</h3>
+                      <p><strong>Messages (24h):</strong> {activity.get('message_count_24h', 'N/A')}</p>
+                      <p><strong>Active Users:</strong> {activity.get('active_users_24h', 'N/A')}</p>
+                      <p><strong>Top Topics:</strong> {', '.join(activity.get('top_topics', []))}</p>
+                      <p><strong>Sentiment:</strong> {activity.get('sentiment', 'neutral')}</p>
+                  </div>"""
+              
+              html_content += """
+              </body>
+              </html>"""
+              
+              with open('multi-channel-standup/digest.html', 'w') as f:
+                  f.write(html_content)
+          
+          else:  # JSON format
+              digest_data = {
+                  "multi_channel_standup": {
+                      "metadata": master_meta,
+                      "repository_insights": insights,
+                      "channel_activities": channel_activities,
+                      "summary": {
+                          "total_channels": len(master_meta['channels']),
+                          "total_messages_24h": sum(act.get('message_count_24h', 0) for act in channel_activities.values()),
+                          "total_active_users": sum(act.get('active_users_24h', 0) for act in channel_activities.values())
+                      }
+                  }
+              }
+              
+              with open('multi-channel-standup/digest.json', 'w') as f:
+                  json.dump(digest_data, f, indent=2)
+          
+          print(f"✅ {format_type.upper()} digest generated")
+          EOF
+              ;;
+          esac
+      
+      - name: Upload multi-channel artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: multi-channel-standup-${{ env.TEAM }}-${{ github.run_id }}
+          path: multi-channel-standup/
+          retention-days: 7
+      
+      - name: Generate summary output
+        run: |
+          echo "🎉 Multi-channel standup digest completed!"
+          echo ""
+          echo "📊 Summary:"
+          echo "  Team: $TEAM"
+          echo "  Channels: $CHANNELS"
+          echo "  Format: $FORMAT"
+          echo "  Include Analytics: $INCLUDE_ANALYTICS"
+          echo "  Triggered by: ${{ github.actor }}"
+          echo ""
+          echo "📁 Generated files:"
+          find multi-channel-standup -type f | sort
+          echo ""
+          echo "🔗 Download artifacts from workflow summary"
+          
+          # Output key metrics for GitHub summary
+          if [ -f "multi-channel-standup/repository_insights.json" ]; then
+            echo ""
+            echo "## 📈 Quick Stats"
+            python3 - << 'EOF'
+          import json
+          
+          with open('multi-channel-standup/repository_insights.json', 'r') as f:
+              insights = json.load(f)
+          
+          if 'periods' in insights:
+              print(f"- Commits (24h): {insights['periods'].get('24h', {}).get('commits', 0)}")
+              print(f"- Authors (7d): {insights['periods'].get('7d', {}).get('authors', 0)}")
+              print(f"- Files changed (30d): {insights['periods'].get('30d', {}).get('files_changed', 0)}")
+          EOF
+          fi

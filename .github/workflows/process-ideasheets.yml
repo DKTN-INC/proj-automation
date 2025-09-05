@@ -1,0 +1,246 @@
+name: Process Ideasheets to PDF
+
+on:
+  push:
+    paths:
+      - 'docs/ideasheets/**/*.md'
+      - 'scripts/**'
+  pull_request:
+    paths:
+      - 'docs/ideasheets/**/*.md'
+      - 'scripts/**'
+  workflow_dispatch:
+    inputs:
+      force_process_all:
+        description: 'Force process all ideasheets (not just changed files)'
+        required: false
+        default: false
+        type: boolean
+      output_format:
+        description: 'Output format selection'
+        required: false
+        default: 'both'
+        type: choice
+        options:
+          - 'both'
+          - 'html-only'
+          - 'pdf-only'
+
+jobs:
+  process-ideasheets:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Need previous commit for diff
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libpango-1.0-0 \
+            libharfbuzz0b \
+            libpangoft2-1.0-0 \
+            libfontconfig1 \
+            libcairo2 \
+            libgdk-pixbuf2.0-0 \
+            libgtk-3-0 \
+            libxml2 \
+            libxslt1.1 \
+            fonts-dejavu-core
+      
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Validate setup
+        run: |
+          echo "🔍 Validating processing setup..."
+          ./scripts/process_ideasheets.sh --check
+      
+      - name: Identify changed files
+        id: changed-files
+        run: |
+          echo "🔍 Identifying changed markdown files..."
+          
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.event.inputs.force_process_all }}" != "true" ]; then
+            # Get changed markdown files since last commit
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD -- 'docs/ideasheets/**/*.md' | tr '\n' ' ')
+            if [ -z "$CHANGED_FILES" ]; then
+              echo "No markdown files changed in ideasheets directory"
+              echo "changed_files=" >> $GITHUB_OUTPUT
+              echo "has_changes=false" >> $GITHUB_OUTPUT
+            else
+              echo "Changed files: $CHANGED_FILES"
+              echo "changed_files=$CHANGED_FILES" >> $GITHUB_OUTPUT
+              echo "has_changes=true" >> $GITHUB_OUTPUT
+            fi
+          else
+            # Process all files for manual trigger or PR
+            echo "Processing all markdown files"
+            echo "changed_files=all" >> $GITHUB_OUTPUT
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Process ideasheets
+        if: steps.changed-files.outputs.has_changes == 'true'
+        run: |
+          echo "📝 Processing ideasheets with enhanced features..."
+          echo "🎯 Mode: ${{ github.event.inputs.output_format || 'both' }}"
+          
+          # Set processing options based on input
+          PROCESS_ARGS=""
+          case "${{ github.event.inputs.output_format }}" in
+            "html-only")
+              PROCESS_ARGS="--html-only"
+              ;;
+            "pdf-only")
+              PROCESS_ARGS="--pdf-only"
+              ;;
+            *)
+              # Default to both
+              ;;
+          esac
+          
+          # Process files
+          if [ "${{ steps.changed-files.outputs.changed_files }}" = "all" ]; then
+            # Process entire directory
+            ./scripts/process_ideasheets.sh --verbose $PROCESS_ARGS
+          else
+            # Process individual changed files
+            for file in ${{ steps.changed-files.outputs.changed_files }}; do
+              if [ -f "$file" ]; then
+                echo "Processing: $file"
+                python scripts/markdown_processor.py "$file" -o output -v $PROCESS_ARGS
+              fi
+            done
+          fi
+      
+      - name: Generate processing summary
+        if: steps.changed-files.outputs.has_changes == 'true'
+        run: |
+          echo "📊 Generating processing summary..."
+          
+          SUMMARY_FILE="output/PROCESSING_SUMMARY.md"
+          mkdir -p output
+          
+          cat > "$SUMMARY_FILE" << EOF
+          # Ideasheets Processing Summary
+          
+          **Processed at:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          **Triggered by:** ${{ github.actor }}
+          **Event:** ${{ github.event_name }}
+          **Repository:** ${{ github.repository }}
+          **Commit:** ${{ github.sha }}
+          
+          ## Files Processed
+          
+          EOF
+          
+          if [ -d "output" ]; then
+            HTML_COUNT=$(find output -name "*.html" -type f | wc -l)
+            PDF_COUNT=$(find output -name "*.pdf" -type f | wc -l)
+            
+            echo "- **HTML files generated:** $HTML_COUNT" >> "$SUMMARY_FILE"
+            echo "- **PDF files generated:** $PDF_COUNT" >> "$SUMMARY_FILE"
+            echo "" >> "$SUMMARY_FILE"
+            
+            if [ $HTML_COUNT -gt 0 ] || [ $PDF_COUNT -gt 0 ]; then
+              echo "## Generated Files" >> "$SUMMARY_FILE"
+              echo "" >> "$SUMMARY_FILE"
+              
+              find output -type f \( -name "*.html" -o -name "*.pdf" \) | sort | while read file; do
+                filename=$(basename "$file")
+                size=$(stat -c%s "$file" | numfmt --to=iec-i --suffix=B)
+                echo "- \`$filename\` ($size)" >> "$SUMMARY_FILE"
+              done
+            fi
+          fi
+          
+          echo "" >> "$SUMMARY_FILE"
+          echo "---" >> "$SUMMARY_FILE"
+          echo "*Generated by GitHub Actions workflow*" >> "$SUMMARY_FILE"
+          
+          echo "📋 Processing summary saved to: $SUMMARY_FILE"
+      
+      - name: Upload artifacts
+        if: steps.changed-files.outputs.has_changes == 'true'
+        uses: actions/upload-artifact@v3
+        with:
+          name: processed-ideasheets-${{ github.sha }}
+          path: |
+            output/
+            !output/**/*.log
+          retention-days: 30
+      
+      - name: Comment on PR (if applicable)
+        if: github.event_name == 'pull_request' && steps.changed-files.outputs.has_changes == 'true'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            // Read processing summary if it exists
+            const summaryPath = 'output/PROCESSING_SUMMARY.md';
+            let summaryContent = '';
+            
+            if (fs.existsSync(summaryPath)) {
+              summaryContent = fs.readFileSync(summaryPath, 'utf8');
+            }
+            
+            // Count generated files
+            let htmlCount = 0;
+            let pdfCount = 0;
+            
+            if (fs.existsSync('output')) {
+              const files = fs.readdirSync('output', { recursive: true });
+              htmlCount = files.filter(f => f.endsWith('.html')).length;
+              pdfCount = files.filter(f => f.endsWith('.pdf')).length;
+            }
+            
+            const comment = `## 📄 Ideasheets Processing Complete
+            
+            The markdown files in your PR have been successfully processed!
+            
+            ### 📊 Summary
+            - **HTML files generated:** ${htmlCount}
+            - **PDF files generated:** ${pdfCount}
+            - **Artifacts available:** Yes (30 days retention)
+            
+            ### 🔗 Download
+            You can download the generated files from the [workflow artifacts](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).
+            
+            ${summaryContent ? '### 📋 Details\n\n' + summaryContent : ''}
+            
+            ---
+            *This comment was automatically generated by the ideasheets processing workflow.*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+      
+      - name: Log workflow completion
+        run: |
+          echo "✅ Ideasheets processing workflow completed successfully!"
+          echo "📈 Workflow statistics:"
+          echo "   - Event: ${{ github.event_name }}"
+          echo "   - Actor: ${{ github.actor }}"
+          echo "   - Repository: ${{ github.repository }}"
+          echo "   - Commit: ${{ github.sha }}"
+          if [ -d "output" ]; then
+            echo "   - Files generated: $(find output -type f | wc -l)"
+            echo "   - Output size: $(du -sh output | cut -f1)"
+          fi

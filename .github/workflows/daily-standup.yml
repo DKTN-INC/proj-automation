@@ -8,17 +8,352 @@ on:
         required: false
         default: 'development'
         type: string
+      include_summary:
+        description: 'Include AI summary of recent activity'
+        required: false
+        default: true
+        type: boolean
+      output_format:
+        description: 'Output format for standup'
+        required: false
+        default: 'markdown'
+        type: choice
+        options:
+          - 'markdown'
+          - 'html'
+          - 'json'
 
 jobs:
   standup:
     runs-on: ubuntu-latest
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         
-      - name: Run standup process
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
         run: |
-          echo "🚀 Starting daily standup for team: ${{ github.event.inputs.team || 'development' }}"
-          echo "📅 Date: $(date '+%Y-%m-%d %H:%M:%S')"
-          echo "👤 Triggered by: ${{ github.actor }}"
-          echo "✅ Standup workflow completed successfully"
+          python -m pip install --upgrade pip
+          pip install requests python-dateutil markdown jinja2
+      
+      - name: Validate inputs
+        run: |
+          echo "🔍 Validating standup inputs..."
+          
+          TEAM="${{ github.event.inputs.team || 'development' }}"
+          FORMAT="${{ github.event.inputs.output_format || 'markdown' }}"
+          INCLUDE_SUMMARY="${{ github.event.inputs.include_summary || 'true' }}"
+          
+          # Validate team name
+          if [[ ! "$TEAM" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+            echo "❌ Error: Invalid team name format: $TEAM"
+            exit 1
+          fi
+          
+          # Validate format
+          case "$FORMAT" in
+            markdown|html|json)
+              echo "✅ Valid output format: $FORMAT"
+              ;;
+            *)
+              echo "❌ Error: Invalid output format: $FORMAT"
+              exit 1
+              ;;
+          esac
+          
+          echo "✅ Input validation completed"
+          echo "TEAM=$TEAM" >> $GITHUB_ENV
+          echo "FORMAT=$FORMAT" >> $GITHUB_ENV
+          echo "INCLUDE_SUMMARY=$INCLUDE_SUMMARY" >> $GITHUB_ENV
+        
+      - name: Generate standup data
+        run: |
+          echo "📊 Generating standup data for team: $TEAM"
+          
+          # Create standup data directory
+          mkdir -p standup-output
+          
+          # Generate standup metadata
+          cat > standup-output/metadata.json << EOF
+          {
+            "team": "$TEAM",
+            "date": "$(date -u '+%Y-%m-%d')",
+            "time": "$(date -u '+%H:%M:%S UTC')",
+            "triggered_by": "${{ github.actor }}",
+            "repository": "${{ github.repository }}",
+            "commit": "${{ github.sha }}",
+            "workflow_run": "${{ github.run_id }}",
+            "include_summary": $INCLUDE_SUMMARY,
+            "output_format": "$FORMAT"
+          }
+          EOF
+          
+          echo "✅ Standup metadata generated"
+      
+      - name: Collect recent activity
+        run: |
+          echo "🔍 Collecting recent team activity..."
+          
+          # Get recent commits (last 24 hours)
+          SINCE_DATE=$(date -d '24 hours ago' -u '+%Y-%m-%dT%H:%M:%SZ')
+          
+          echo "Collecting commits since: $SINCE_DATE"
+          
+          # Generate recent commits summary
+          git log --since="$SINCE_DATE" --pretty=format:'{"commit": "%H", "author": "%an", "date": "%ai", "message": "%s"}' > standup-output/recent_commits.json || true
+          
+          # Count recent commits
+          COMMIT_COUNT=$(wc -l < standup-output/recent_commits.json || echo "0")
+          echo "Found $COMMIT_COUNT recent commits"
+          
+          # Generate activity summary
+          cat > standup-output/activity_summary.json << EOF
+          {
+            "commits_24h": $COMMIT_COUNT,
+            "collection_time": "$(date -u '+%Y-%m-%d %H:%M:%S UTC')",
+            "period": "24 hours"
+          }
+          EOF
+          
+          echo "✅ Activity collection completed"
+      
+      - name: Generate AI summary
+        if: env.INCLUDE_SUMMARY == 'true'
+        run: |
+          echo "🤖 Generating AI summary of recent activity..."
+          
+          python3 - << 'EOF'
+          import json
+          import os
+          from datetime import datetime, timedelta
+          
+          # Read recent commits
+          commits_file = 'standup-output/recent_commits.json'
+          commits = []
+          
+          if os.path.exists(commits_file) and os.path.getsize(commits_file) > 0:
+              with open(commits_file, 'r') as f:
+                  for line in f:
+                      line = line.strip()
+                      if line:
+                          try:
+                              commits.append(json.loads(line))
+                          except json.JSONDecodeError:
+                              pass
+          
+          # Generate summary
+          if commits:
+              summary = f"Team activity summary: {len(commits)} commits in the last 24 hours. "
+              
+              authors = set(commit['author'] for commit in commits)
+              summary += f"Contributors: {', '.join(authors)}. "
+              
+              # Get unique first words of commit messages for theme detection
+              themes = []
+              for commit in commits:
+                  msg = commit['message'].lower()
+                  if msg.startswith('fix'):
+                      themes.append('bug fixes')
+                  elif msg.startswith('add') or msg.startswith('implement'):
+                      themes.append('new features')
+                  elif msg.startswith('update') or msg.startswith('improve'):
+                      themes.append('improvements')
+                  elif msg.startswith('refactor'):
+                      themes.append('refactoring')
+              
+              if themes:
+                  unique_themes = list(set(themes))
+                  summary += f"Main activities: {', '.join(unique_themes)}."
+          else:
+              summary = "No recent commits found in the last 24 hours."
+          
+          # Save summary
+          with open('standup-output/ai_summary.txt', 'w') as f:
+              f.write(summary)
+          
+          print(f"Generated summary: {summary}")
+          EOF
+          
+          echo "✅ AI summary generated"
+      
+      - name: Generate standup report
+        run: |
+          echo "📝 Generating standup report in $FORMAT format..."
+          
+          # Read metadata
+          METADATA=$(cat standup-output/metadata.json)
+          
+          case "$FORMAT" in
+            markdown)
+              cat > standup-output/standup-report.md << EOF
+          # Daily Standup Report
+          
+          **Team:** $TEAM  
+          **Date:** $(date '+%Y-%m-%d')  
+          **Time:** $(date '+%H:%M:%S %Z')  
+          **Triggered by:** ${{ github.actor }}
+          
+          ## Recent Activity
+          
+          $(if [ -f standup-output/activity_summary.json ]; then
+            ACTIVITY=$(cat standup-output/activity_summary.json)
+            COMMIT_COUNT=$(echo "$ACTIVITY" | python3 -c "import sys, json; print(json.load(sys.stdin)['commits_24h'])")
+            echo "- **Commits (24h):** $COMMIT_COUNT"
+          fi)
+          
+          $(if [ "$INCLUDE_SUMMARY" = "true" ] && [ -f standup-output/ai_summary.txt ]; then
+            echo "## AI Summary"
+            echo ""
+            cat standup-output/ai_summary.txt
+          fi)
+          
+          ## Workflow Information
+          
+          - **Repository:** ${{ github.repository }}
+          - **Workflow Run:** [#${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          - **Commit:** \`${{ github.sha }}\`
+          
+          ---
+          *Generated automatically by GitHub Actions*
+          EOF
+              ;;
+            
+            html)
+              # Use Python to generate HTML
+              python3 - << 'EOF'
+          import json
+          import os
+          from datetime import datetime
+          
+          # Read data
+          with open('standup-output/metadata.json', 'r') as f:
+              metadata = json.load(f)
+          
+          ai_summary = ""
+          if os.path.exists('standup-output/ai_summary.txt'):
+              with open('standup-output/ai_summary.txt', 'r') as f:
+                  ai_summary = f.read()
+          
+          activity_summary = {}
+          if os.path.exists('standup-output/activity_summary.json'):
+              with open('standup-output/activity_summary.json', 'r') as f:
+                  activity_summary = json.load(f)
+          
+          # Generate HTML
+          html_content = f"""<!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Daily Standup - {metadata['team']}</title>
+              <style>
+                  body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; }}
+                  .header {{ background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 2rem; }}
+                  .summary {{ background: #e3f2fd; padding: 1rem; border-radius: 8px; margin: 1rem 0; }}
+                  .activity {{ background: #f3e5f5; padding: 1rem; border-radius: 8px; margin: 1rem 0; }}
+                  .meta {{ font-size: 0.9rem; color: #666; border-top: 1px solid #eee; padding-top: 1rem; margin-top: 2rem; }}
+              </style>
+          </head>
+          <body>
+              <div class="header">
+                  <h1>🚀 Daily Standup Report</h1>
+                  <p><strong>Team:</strong> {metadata['team']}</p>
+                  <p><strong>Date:</strong> {metadata['date']} {metadata['time']}</p>
+                  <p><strong>Triggered by:</strong> {metadata['triggered_by']}</p>
+              </div>
+              
+              <div class="activity">
+                  <h2>📊 Recent Activity</h2>
+                  <p><strong>Commits (24h):</strong> {activity_summary.get('commits_24h', 0)}</p>
+              </div>
+              
+              {f'<div class="summary"><h2>🤖 AI Summary</h2><p>{ai_summary}</p></div>' if ai_summary else ''}
+              
+              <div class="meta">
+                  <p><strong>Repository:</strong> {metadata['repository']}</p>
+                  <p><strong>Workflow Run:</strong> #{metadata['workflow_run']}</p>
+                  <p><strong>Commit:</strong> {metadata['commit']}</p>
+              </div>
+          </body>
+          </html>"""
+          
+          with open('standup-output/standup-report.html', 'w') as f:
+              f.write(html_content)
+          EOF
+              ;;
+            
+            json)
+              # Combine all data into JSON
+              python3 - << 'EOF'
+          import json
+          import os
+          
+          # Read all data files
+          with open('standup-output/metadata.json', 'r') as f:
+              metadata = json.load(f)
+          
+          ai_summary = ""
+          if os.path.exists('standup-output/ai_summary.txt'):
+              with open('standup-output/ai_summary.txt', 'r') as f:
+                  ai_summary = f.read()
+          
+          activity_summary = {}
+          if os.path.exists('standup-output/activity_summary.json'):
+              with open('standup-output/activity_summary.json', 'r') as f:
+                  activity_summary = json.load(f)
+          
+          commits = []
+          if os.path.exists('standup-output/recent_commits.json'):
+              with open('standup-output/recent_commits.json', 'r') as f:
+                  for line in f:
+                      line = line.strip()
+                      if line:
+                          try:
+                              commits.append(json.loads(line))
+                          except json.JSONDecodeError:
+                              pass
+          
+          # Combine into final report
+          report = {
+              "standup_report": {
+                  "metadata": metadata,
+                  "activity": activity_summary,
+                  "ai_summary": ai_summary,
+                  "recent_commits": commits
+              }
+          }
+          
+          with open('standup-output/standup-report.json', 'w') as f:
+              json.dump(report, f, indent=2)
+          EOF
+              ;;
+          esac
+          
+          echo "✅ Standup report generated"
+      
+      - name: Upload standup artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: daily-standup-${{ env.TEAM }}-${{ github.run_id }}
+          path: standup-output/
+          retention-days: 7
+      
+      - name: Output summary
+        run: |
+          echo "🎉 Daily standup completed successfully!"
+          echo ""
+          echo "📊 Summary:"
+          echo "  Team: $TEAM"
+          echo "  Format: $FORMAT"
+          echo "  Include AI Summary: $INCLUDE_SUMMARY"
+          echo "  Triggered by: ${{ github.actor }}"
+          echo ""
+          echo "📁 Generated files:"
+          ls -la standup-output/
+          echo ""
+          echo "🔗 Artifacts available for download in workflow summary"

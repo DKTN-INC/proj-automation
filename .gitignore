@@ -1,0 +1,61 @@
+# Build and output directories
+output/
+build/
+dist/
+
+# Python cache and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# Template cache
+scripts/templates/.cache/
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+*.tmp
+.tmp/
+temp/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# PyTest
+.pytest_cache/
+.cache/
+
+# Node modules (if any)
+node_modules/
+
+# Package files
+*.egg-info/
+.eggs/
