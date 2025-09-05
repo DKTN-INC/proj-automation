@@ -1,13 +1,20 @@
 # Core markdown processing and templating dependencies
-markdown>=3.4.0
+markdown>=3.5.0
 Jinja2>=3.1.0
 weasyprint>=59.0
+pdfkit>=1.0.0
 
 # For enhanced markdown features
 pymdown-extensions>=10.0.0
 
+# Discord Bot Dependencies
+discord.py>=2.3.0
+
 # For potential AI integration (optional, lightweight)
-requests>=2.28.0
+requests>=2.31.0
+
+# Additional useful packages
+python-dotenv>=1.0.0  # For loading .env files
 
 # For better error handling and logging
-colorama>=0.4.6
+colorama>=0.4.6       # For colored terminal output

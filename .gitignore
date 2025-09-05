@@ -13,6 +13,9 @@ __pycache__/
 venv/
 ENV/
 env/
+.env
+env.bak/
+venv.bak/
 
 # Template cache
 scripts/templates/.cache/
@@ -20,11 +23,31 @@ scripts/templates/.cache/
 # Log files
 *.log
 logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Temporary files
 *.tmp
 .tmp/
+*.temp
 temp/
+tmp/
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# PyTest
+.pytest_cache/
+.cache/
+.tox/
+.nox/
 
 # OS generated files
 .DS_Store
@@ -42,20 +65,26 @@ Thumbs.db
 *.swo
 *~
 
-# Coverage reports
-htmlcov/
-.coverage
-.coverage.*
-coverage.xml
-*.cover
-
-# PyTest
-.pytest_cache/
-.cache/
-
 # Node modules (if any)
 node_modules/
 
 # Package files
 *.egg-info/
 .eggs/
+develop-eggs/
+downloads/
+eggs/
+.installed.cfg
+*.egg
+MANIFEST
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+
+# Docker
+.dockerignore
