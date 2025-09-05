@@ -1,0 +1,13 @@
+# Discord Bot Dependencies
+discord.py>=2.3.0
+
+# PDF Generation Dependencies
+markdown>=3.5.0
+pdfkit>=1.0.0
+
+# HTTP Requests
+requests>=2.31.0
+
+# Additional useful packages
+python-dotenv>=1.0.0  # For loading .env files
+colorama>=0.4.6       # For colored terminal output
