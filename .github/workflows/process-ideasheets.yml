@@ -1,5 +1,9 @@
 name: Process Ideasheets to PDF
 
+permissions:
+  contents: write
+  pull-requests: write
+
 on:
   push:
     paths:
@@ -243,4 +247,3 @@ jobs:
           if [ -d "output" ]; then
             echo "   - Files generated: $(find output -type f | wc -l)"
             echo "   - Output size: $(du -sh output | cut -f1)"
-          fi
