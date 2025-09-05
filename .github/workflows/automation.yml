@@ -134,8 +134,7 @@ jobs:
               --webhook "$DISCORD_WEBHOOK_URL" \
               --message "$message" \
               --username "Idea Sheet Bot" \
-              --verbose
-              
+              --verbose || echo "Failed to send PDFs"
             echo "✅ PDFs sent to Discord successfully"
           else
             echo "ℹ️ No PDFs to send"
