@@ -1,58 +1,55 @@
-# Python
+# Build and output directories
+output/
+build/
+dist/
+
+# Python cache and virtual environments
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Virtual environments
-.env
-.venv
-env/
+.venv/
 venv/
 ENV/
+env/
+.env
 env.bak/
 venv.bak/
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# Template cache
+scripts/templates/.cache/
 
-# Logs
+# Log files
 *.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Testing
+# Temporary files
+*.tmp
+.tmp/
+*.temp
+temp/
+tmp/
+
+# Coverage reports
+htmlcov/
 .coverage
-.pytest_cache/
-.tox/
-.nox/
+.coverage.*
 coverage.xml
 *.cover
 *.py,cover
 .hypothesis/
 
-# OS
+# PyTest
+.pytest_cache/
+.cache/
+.tox/
+.nox/
+
+# OS generated files
 .DS_Store
 .DS_Store?
 ._*
@@ -61,20 +58,33 @@ coverage.xml
 ehthumbs.db
 Thumbs.db
 
-# Temporary files
-*.tmp
-*.temp
-temp/
-tmp/
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# PDF outputs (for development)
-output/
-
-# Node.js (if any JS tools are added later)
+# Node modules (if any)
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+
+# Package files
+*.egg-info/
+.eggs/
+develop-eggs/
+downloads/
+eggs/
+.installed.cfg
+*.egg
+MANIFEST
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
 
 # Docker
 .dockerignore
