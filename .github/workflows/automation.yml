@@ -20,6 +20,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  issues: write
 
 jobs:
   convert-and-publish:
@@ -29,7 +30,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          # Depth 0 to ensure PR base and head SHAs are present for diffs
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -129,9 +131,16 @@ jobs:
               | grep -v 'README\.md$' | sort > changed_files.txt || true
           else
             echo "Push mode: checking changed files..."
-            git diff --name-only HEAD~1 HEAD \
-              | grep -E '^docs/ideasheets/.*\.md$' \
-              | grep -v 'README\.md$' | sort > changed_files.txt || true
+            # Fallback to HEAD^ if repository has a single-parent commit history
+            if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+              git diff --name-only HEAD~1 HEAD \
+                | grep -E '^docs/ideasheets/.*\.md$' \
+                | grep -v 'README\.md$' | sort > changed_files.txt || true
+            else
+              git show --name-only --pretty="" HEAD \
+                | grep -E '^docs/ideasheets/.*\.md$' \
+                | grep -v 'README\.md$' | sort > changed_files.txt || true
+            fi
           fi
 
           if [ -s changed_files.txt ]; then
@@ -317,4 +326,3 @@ jobs:
               repo: context.repo.repo,
               body: comment
             });
-```
