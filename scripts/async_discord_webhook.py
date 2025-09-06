@@ -134,7 +134,7 @@ class AsyncDiscordWebhook:
             # Create embed with file info
             embed = {
                 'title': '📋 Idea Sheet Published',
-                'description': f'**File:** {pdf_file.name}\\n**Size:** {file_size / 1024:.1f} KB',
+                'description': f'**File:** {pdf_file.name}\n**Size:** {file_size / 1024:.1f} KB',
                 'color': 0x3498db,
                 'timestamp': datetime.utcnow().isoformat(),
                 'footer': {
