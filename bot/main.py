@@ -40,12 +40,27 @@ except ImportError:
 # Optional advanced modules (structured logging, cooldowns, OpenAI wrapper, thread pool)
 try:
     from .logging_config import setup_logging, log_command_execution, log_bot_event  # type: ignore
+    from .health_monitor import health_monitor, start_health_monitoring, stop_health_monitoring, register_health_check
+    from .circuit_breaker import circuit_manager
+    from .resource_manager import cleanup_resources, get_resource_stats
 except Exception:
     try:
         from logging_config import setup_logging, log_command_execution, log_bot_event  # type: ignore
+        from health_monitor import health_monitor, start_health_monitoring, stop_health_monitoring, register_health_check
+        from circuit_breaker import circuit_manager
+        from resource_manager import cleanup_resources, get_resource_stats
     except Exception:
         # Fallbacks
         setup_logging = None  # type: ignore
+        health_monitor = None  # type: ignore
+        
+        async def start_health_monitoring() -> None: pass
+        async def stop_health_monitoring() -> None: pass
+        def register_health_check(name: str, func: Callable) -> None: pass
+        circuit_manager = None  # type: ignore
+        
+        async def cleanup_resources() -> None: pass
+        async def get_resource_stats() -> Dict[str, Any]: return {}
 
         def log_command_execution(_logger: logging.Logger) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
             def deco(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -208,6 +223,19 @@ async def on_ready():
             # Don't return here; allow limited functionality if desired
     except Exception as e:
         logger.warning(f"Config validation failed: {e}")
+
+    # Start health monitoring
+    try:
+        if health_monitor:
+            # Register custom health checks
+            register_health_check("discord_connection", check_discord_health)
+            register_health_check("openai_service", check_openai_health)
+            register_health_check("database_connection", check_database_health)
+            
+            await start_health_monitoring()
+            logger.info("Health monitoring started")
+    except Exception as e:
+        logger.warning(f"Health monitoring setup failed: {e}")
 
     # Sync commands
     try:
@@ -873,6 +901,126 @@ async def summarize_command(
             f"❌ Sorry, I encountered an error while generating the summary: {str(e)}"
         )
 
+@app_commands.command(name="health", description="Show system health status")
+@app_commands.describe(detailed="Show detailed health information")
+@cooldown(30)  # 30 second cooldown
+@log_command_execution(logger)
+async def health_command(interaction: discord.Interaction, detailed: bool = False):
+    """Show system health status."""
+    await interaction.response.defer()
+    
+    try:
+        if health_monitor:
+            health_status = await health_monitor.check_all_health()
+            
+            # Create embed
+            status_colors = {
+                "healthy": 0x2ecc71,    # Green
+                "warning": 0xf39c12,    # Orange
+                "critical": 0xe74c3c,   # Red
+                "unknown": 0x95a5a6     # Gray
+            }
+            
+            embed = discord.Embed(
+                title="🏥 System Health Status",
+                color=status_colors.get(health_status.overall_status, 0x95a5a6),
+                timestamp=datetime.utcnow()
+            )
+            
+            # Overall status
+            status_emoji = {
+                "healthy": "✅",
+                "warning": "⚠️",
+                "critical": "❌",
+                "unknown": "❓"
+            }
+            
+            embed.add_field(
+                name="Overall Status",
+                value=f"{status_emoji.get(health_status.overall_status, '❓')} {health_status.overall_status.title()}",
+                inline=False
+            )
+            
+            # Add key metrics
+            if detailed:
+                for name, metric in health_status.metrics.items():
+                    emoji = status_emoji.get(metric.status, "❓")
+                    value = f"{emoji} {metric.message}"
+                    if metric.value is not None and metric.threshold is not None:
+                        value += f"\nValue: {metric.value:.1f} (threshold: {metric.threshold})"
+                    
+                    embed.add_field(
+                        name=name.replace("_", " ").title(),
+                        value=value,
+                        inline=True
+                    )
+            else:
+                # Summary view
+                healthy_count = sum(1 for m in health_status.metrics.values() if m.status == "healthy")
+                warning_count = sum(1 for m in health_status.metrics.values() if m.status == "warning")
+                critical_count = sum(1 for m in health_status.metrics.values() if m.status == "critical")
+                
+                embed.add_field(
+                    name="Health Summary",
+                    value=f"✅ Healthy: {healthy_count}\n⚠️ Warning: {warning_count}\n❌ Critical: {critical_count}",
+                    inline=False
+                )
+            
+            # Add resource stats
+            try:
+                resource_stats = await get_resource_stats()
+                if resource_stats:
+                    stats_text = ""
+                    if "memory" in resource_stats:
+                        stats_text += f"Memory: {resource_stats['memory'].get('gc_counts', [0])[0]} objects\n"
+                    if "http_sessions" in resource_stats:
+                        stats_text += f"HTTP Sessions: {resource_stats['http_sessions'].get('active_sessions', 0)}\n"
+                    if "files" in resource_stats:
+                        stats_text += f"Temp Files: {resource_stats['files'].get('active_files', 0)}\n"
+                    
+                    if stats_text:
+                        embed.add_field(
+                            name="Resource Usage",
+                            value=stats_text,
+                            inline=True
+                        )
+            except Exception as e:
+                logger.warning(f"Failed to get resource stats: {e}")
+            
+            # Add circuit breaker status
+            try:
+                if circuit_manager:
+                    cb_stats = circuit_manager.get_health_status()
+                    cb_text = f"Breakers: {cb_stats['total_breakers']}\n"
+                    cb_text += f"Open: {cb_stats['open_breakers']}\n"
+                    cb_text += f"Half-Open: {cb_stats['half_open_breakers']}"
+                    
+                    embed.add_field(
+                        name="Circuit Breakers",
+                        value=cb_text,
+                        inline=True
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to get circuit breaker stats: {e}")
+            
+            embed.set_footer(text=f"Requested by {interaction.user.display_name}")
+            await interaction.followup.send(embed=embed)
+            
+        else:
+            await interaction.followup.send(
+                "❌ Health monitoring is not available. Basic features only.",
+                ephemeral=True
+            )
+            
+    except Exception as e:
+        logger.error(f"Error in health command: {e}", exc_info=True)
+        await interaction.followup.send(
+            f"❌ Error checking system health: {str(e)}",
+            ephemeral=True
+        )
+
+bot.tree.add_command(health_command)
+
 # -----------------------------------------------------------------------------
 # Traditional Commands
 # -----------------------------------------------------------------------------
@@ -995,9 +1143,105 @@ async def on_resumed():
     """Handle bot resume."""
     log_bot_event(logger, "bot_resumed")
 
+# -----------------------------------------------------------------------------
+# Health Check Functions
+# -----------------------------------------------------------------------------
+async def check_discord_health() -> Dict[str, Any]:
+    """Check Discord connection health."""
+    try:
+        if bot.is_ready() and not bot.is_closed():
+            latency_ms = bot.latency * 1000
+            status = "healthy"
+            if latency_ms > 1000:
+                status = "critical"
+            elif latency_ms > 500:
+                status = "warning"
+                
+            return {
+                "status": status,
+                "value": latency_ms,
+                "threshold": 500,
+                "message": f"Latency: {latency_ms:.1f}ms, Guilds: {len(bot.guilds)}"
+            }
+        else:
+            return {
+                "status": "critical",
+                "value": None,
+                "message": "Bot is not ready or connection is closed"
+            }
+    except Exception as e:
+        return {
+            "status": "critical",
+            "value": None,
+            "message": f"Health check failed: {e}"
+        }
+
+async def check_openai_health() -> Dict[str, Any]:
+    """Check OpenAI service health."""
+    try:
+        if OpenAIWrapper and _openai_client:
+            health_status = await _openai_client.get_health_status()
+            return {
+                "status": health_status["status"],
+                "value": health_status["stats"]["success_rate"],
+                "threshold": 0.8,
+                "message": health_status["message"]
+            }
+        else:
+            return {
+                "status": "warning",
+                "value": None,
+                "message": "OpenAI service not configured"
+            }
+    except Exception as e:
+        return {
+            "status": "warning",
+            "value": None,
+            "message": f"OpenAI health check failed: {e}"
+        }
+
+async def check_database_health() -> Dict[str, Any]:
+    """Check database connection health."""
+    try:
+        # Simple database health check
+        if hasattr(memory, 'db_path') and memory.db_path:
+            # Try a simple query
+            await memory.get_conversation_context("health_check", max_messages=1)
+            return {
+                "status": "healthy",
+                "value": 1,
+                "message": "Database connection active"
+            }
+        else:
+            return {
+                "status": "warning",
+                "value": 0,
+                "message": "Database not configured"
+            }
+    except Exception as e:
+        return {
+            "status": "warning",
+            "value": None,
+            "message": f"Database health check failed: {e}"
+        }
+
 async def cleanup():
     """Cleanup resources before shutdown."""
     logger.info("Starting cleanup process")
+
+    # Stop health monitoring
+    try:
+        await stop_health_monitoring()
+        logger.info("Health monitoring stopped")
+    except Exception as e:
+        logger.warning(f"Failed to stop health monitoring: {e}")
+
+    # Cleanup managed resources
+    try:
+        await cleanup_resources()
+        logger.info("Managed resources cleaned up")
+    except Exception as e:
+        logger.warning(f"Failed to cleanup managed resources: {e}")
 
     global _openai_client
     try:
