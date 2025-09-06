@@ -1,3 +1,4 @@
+```yaml name=.github/workflows/markdown-to-pdf.yml
 name: Markdown to PDF Automation
 
 on:
@@ -24,144 +25,285 @@ permissions:
 jobs:
   convert-and-publish:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2  # Need previous commit for diff
-      
+          fetch-depth: 2
+
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      
-      - name: Install system dependencies
+
+      # WeasyPrint requires system libraries (Cairo, Pango, GDK-Pixbuf, etc.)
+      - name: Install system dependencies for WeasyPrint
         run: |
+          set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y wkhtmltopdf
-          
+          sudo apt-get install -y \
+            libcairo2 \
+            libpango-1.0-0 \
+            libpangocairo-1.0-0 \
+            libgdk-pixbuf2.0-0 \
+            libffi-dev \
+            shared-mime-info \
+            fonts-dejavu-core
+          echo "✅ Installed system dependencies for WeasyPrint"
+
       - name: Install Python dependencies
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
-          pip install markdown pdfkit requests
-          
-      - name: Make scripts executable
+          # markdown_processor.py uses: markdown, jinja2, pygments (for codehilite), and weasyprint
+          pip install "weasyprint>=60,<63" "Markdown>=3.4" "Jinja2>=3.1" "Pygments>=2.16" requests
+          # Verify imports with helpful error if something is missing
+          python - <<'PY'
+          import sys
+          missing = []
+          try:
+              import weasyprint  # noqa
+          except Exception as e:
+              missing.append(f"weasyprint ({e})")
+          try:
+              import markdown  # noqa
+          except Exception as e:
+              missing.append(f"markdown ({e})")
+          try:
+              import jinja2  # noqa
+          except Exception as e:
+              missing.append(f"jinja2 ({e})")
+          try:
+              import pygments  # noqa
+          except Exception as e:
+              missing.append(f"pygments ({e})")
+          if missing:
+              print("❌ Missing or failed imports:", ", ".join(missing), file=sys.stderr)
+              print("ℹ️ Ensure system libs for WeasyPrint are installed and try again.", file=sys.stderr)
+              sys.exit(1)
+          else:
+              print("✅ Verified Python dependencies (weasyprint, markdown, jinja2, pygments)")
+          PY
+
+      - name: Verify required scripts exist
         run: |
-          chmod +x scripts/md_to_pdf.py
-          chmod +x scripts/send_pdf_to_discord.py
-          
-      - name: Get changed files
+          set -euo pipefail
+          required=( "scripts/markdown_processor.py" "scripts/send_pdf_to_discord.py" )
+          missing=0
+          for f in "${required[@]}"; do
+            if [ ! -f "$f" ]; then
+              echo "❌ Required file missing: $f" >&2
+              missing=1
+            else
+              echo "✅ Found: $f"
+            fi
+          done
+          if [ $missing -ne 0 ]; then
+            echo "❌ One or more required scripts are missing. Please add them to the repository." >&2
+            exit 1
+          fi
+
+      - name: Make scripts executable (optional)
+        run: |
+          set -euo pipefail
+          chmod +x scripts/markdown_processor.py || true
+          chmod +x scripts/send_pdf_to_discord.py || true
+
+      - name: Determine changed files
         id: changed-files
         run: |
+          set -euo pipefail
+          if [ ! -d "docs/ideasheets" ]; then
+            echo "ℹ️ Directory docs/ideasheets does not exist. Nothing to do."
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.force_all }}" = "true" ]; then
             echo "Converting all markdown files..."
-            find docs/ideasheets -name "*.md" ! -name "README.md" > changed_files.txt
+            find docs/ideasheets -type f -name "*.md" ! -name "README.md" | sort > changed_files.txt || true
           elif [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "PR mode: checking changed files..."
-            git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep "^docs/ideasheets/.*\.md$" | grep -v "README.md" > changed_files.txt || touch changed_files.txt
+            git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} \
+              | grep -E '^docs/ideasheets/.*\.md$' \
+              | grep -v 'README\.md$' | sort > changed_files.txt || true
           else
             echo "Push mode: checking changed files..."
-            git diff --name-only HEAD~1 HEAD | grep "^docs/ideasheets/.*\.md$" | grep -v "README.md" > changed_files.txt || touch changed_files.txt
+            git diff --name-only HEAD~1 HEAD \
+              | grep -E '^docs/ideasheets/.*\.md$' \
+              | grep -v 'README\.md$' | sort > changed_files.txt || true
           fi
-          
+
           if [ -s changed_files.txt ]; then
             echo "Found changed files:"
             cat changed_files.txt
-            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
           else
             echo "No relevant markdown files changed"
-            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
           fi
-          
+
       - name: Create output directory
         if: steps.changed-files.outputs.has_changes == 'true'
         run: |
+          set -euo pipefail
           mkdir -p output/pdfs
-          
-      - name: Convert Markdown to PDF and Send to Discord
+
+      - name: Convert Markdown to PDF
+        if: steps.changed-files.outputs.has_changes == 'true'
+        run: |
+          set -euo pipefail
+          echo "🔄 Converting markdown files to PDF..."
+          converted_files=""
+          total=0
+          success=0
+          failed=0
+
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            total=$((total+1))
+            if [ ! -f "$file" ]; then
+              echo "❌ File not found (skipping): $file" >&2
+              failed=$((failed+1))
+              continue
+            fi
+
+            echo "Processing: $file"
+            # markdown_processor.py does not support --discord; do pure conversion here
+            if python scripts/markdown_processor.py "$file" -o output/pdfs; then
+              pdf_name="$(basename "$file" .md).pdf"
+              if [ -f "output/pdfs/$pdf_name" ]; then
+                echo "✅ Successfully processed: $pdf_name"
+                converted_files="$converted_files output/pdfs/$pdf_name"
+                success=$((success+1))
+              else
+                echo "❌ Expected PDF not found after conversion: output/pdfs/$pdf_name" >&2
+                failed=$((failed+1))
+              fi
+            else
+              echo "❌ Conversion script reported an error for: $file" >&2
+              failed=$((failed+1))
+            fi
+          done < changed_files.txt
+
+          echo "converted_files=${converted_files## }" >> "$GITHUB_ENV"
+
+          {
+            echo "## PDF Conversion Summary"
+            echo ""
+            echo "- Total candidates: $total"
+            echo "- Successful: $success"
+            echo "- Failed: $failed"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # If everything failed but there were candidates, exit non-zero to flag attention
+          if [ "$total" -gt 0 ] && [ "$success" -eq 0 ]; then
+            echo "❌ All conversions failed." >&2
+            exit 1
+          fi
+
+      - name: Send PDFs to Discord (per file)
         if: steps.changed-files.outputs.has_changes == 'true'
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          echo "🔄 Converting markdown files to PDF with Discord integration..."
-          converted_files=""
-          
-          while IFS= read -r file; do
-            if [ -f "$file" ]; then
-              echo "Processing: $file"
-              python scripts/markdown_processor.py "$file" -o output/pdfs --discord
-              pdf_name=$(basename "$file" .md).pdf
-              if [ -f "output/pdfs/$pdf_name" ]; then
-                echo "✅ Successfully processed: $pdf_name"
-                converted_files="$converted_files output/pdfs/$pdf_name"
-              else
-                echo "❌ Failed to process: $file"
-              fi
+          set -euo pipefail
+          if [ -z "${DISCORD_WEBHOOK_URL:-}" ]; then
+            echo "⚠️ DISCORD_WEBHOOK_URL not set; skipping PDF uploads to Discord."
+            exit 0
+          fi
+
+          if [ -z "${converted_files:-}" ]; then
+            echo "ℹ️ No converted files to send."
+            exit 0
+          fi
+
+          sent=0
+          failed=0
+          for pdf in ${converted_files}; do
+            if [ ! -f "$pdf" ]; then
+              echo "❌ Missing PDF (skipping): $pdf" >&2
+              failed=$((failed+1))
+              continue
             fi
-          done < changed_files.txt
-          
-          echo "converted_files=$converted_files" >> $GITHUB_ENV
-          
+            msg="📄 Uploaded PDF: $(basename "$pdf")"
+            if python scripts/send_pdf_to_discord.py --webhook "$DISCORD_WEBHOOK_URL" --file "$pdf" --message "$msg"; then
+              echo "✅ Sent to Discord: $pdf"
+              sent=$((sent+1))
+            else
+              echo "❌ Failed to send to Discord: $pdf" >&2
+              failed=$((failed+1))
+            fi
+          done
+
+          {
+            echo ""
+            echo "### Discord Upload Summary"
+            echo "- Sent: $sent"
+            echo "- Failed: $failed"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: List generated PDFs
         if: steps.changed-files.outputs.has_changes == 'true'
         run: |
+          set -euo pipefail
           echo "Generated PDF files:"
           ls -la output/pdfs/ || echo "No PDFs generated"
-          
+
       - name: Upload PDFs as artifacts
         if: steps.changed-files.outputs.has_changes == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: idea-sheet-pdfs-${{ github.sha }}
           path: output/pdfs/*.pdf
+          if-no-files-found: ignore
           retention-days: 30
-          
+
       - name: Send completion notification
         if: always() && steps.changed-files.outputs.has_changes == 'true'
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+          set -euo pipefail
+          if [ -z "${DISCORD_WEBHOOK_URL:-}" ]; then
             echo "⚠️ DISCORD_WEBHOOK_URL secret not set, skipping notification"
             exit 0
           fi
-          
+
           if [ "${{ job.status }}" = "success" ]; then
             title="✅ PDF Generation Complete"
-            message="Successfully processed idea sheets from commit [\`${GITHUB_SHA:0:7}\`](${{ github.event.head_commit.url || github.event.pull_request.html_url }})"
-            color=3066993  # Green
+            color=3066993
+            message="Successfully processed idea sheets from commit \`${GITHUB_SHA:0:7}\`."
           else
             title="❌ PDF Generation Failed"
-            message="Failed to process idea sheets from commit [\`${GITHUB_SHA:0:7}\`](${{ github.event.head_commit.url || github.event.pull_request.html_url }})"
-            color=15158332  # Red
+            color=15158332
+            message="Failed to fully process idea sheets from commit \`${GITHUB_SHA:0:7}\`."
           fi
-          
+
+          # Use notify-only mode; the script should handle missing args gracefully
           python scripts/send_pdf_to_discord.py \
             --webhook "$DISCORD_WEBHOOK_URL" \
             --notify-only \
-            --message "$message" || echo "Failed to send completion notification"
-            
+            --message "$message" || echo "⚠️ Failed to send completion notification"
+
       - name: Comment on PR (if applicable)
         if: github.event_name == 'pull_request' && steps.changed-files.outputs.has_changes == 'true'
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            
             let comment = '## 📄 PDF Generation Results\n\n';
-            
+
             if (fs.existsSync('changed_files.txt')) {
               const changedFiles = fs.readFileSync('changed_files.txt', 'utf8').trim().split('\n').filter(f => f);
-              
               if (changedFiles.length > 0) {
-                comment += `✅ Successfully processed ${changedFiles.length} idea sheet(s):\n\n`;
+                comment += `✅ Processed ${changedFiles.length} idea sheet(s):\n\n`;
                 changedFiles.forEach(file => {
                   const filename = file.replace('docs/ideasheets/', '').replace('.md', '');
                   comment += `- 📋 \`${filename}.md\` → \`${filename}.pdf\`\n`;
                 });
-                
-                comment += '\n📤 PDFs have been sent to the configured Discord channel.\n';
+                comment += '\n📤 PDFs have been sent to the configured Discord channel (if configured).\n';
                 comment += '💾 PDFs are also available as workflow artifacts.\n';
               } else {
                 comment += '📭 No idea sheet files were changed in this PR.\n';
@@ -169,10 +311,11 @@ jobs:
             } else {
               comment += '⚠️ Could not determine changed files.\n';
             }
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: comment
             });
+```
