@@ -397,7 +397,7 @@ class HTTPSessionManager:
     async def close_all_sessions(self) -> None:
         """Close all HTTP sessions."""
         async with self._lock:
-            for key, session in self._sessions.items():
+            for _key, session in self._sessions.items():
                 if not session.closed:
                     await session.close()
 

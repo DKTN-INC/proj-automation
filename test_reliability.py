@@ -21,7 +21,6 @@ try:
     from openai_wrapper import OpenAIWrapper
     from reliability_config import get_reliability_config
     from resource_manager import (
-        FileManager,
         HTTPSessionManager,
         MemoryManager,
         cleanup_resources,
