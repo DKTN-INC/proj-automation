@@ -105,9 +105,6 @@ class OpenAIWrapper:
                         "User-Agent": "Project-Automation-Bot/1.0"
                     }
                 )
-                    "User-Agent": "proj-automation-bot/1.0"
-                }
-            )
     
     async def close(self):
         """Close the aiohttp session."""
@@ -190,18 +187,6 @@ class OpenAIWrapper:
                         wait_time = min(2 ** attempt, 10)
                         logger.warning(f"OpenAI request failed, retrying in {wait_time}s: {e}")
                         await asyncio.sleep(wait_time)
-                        return None
-                        
-            except asyncio.TimeoutError:
-                logger.warning(f"OpenAI request timeout, attempt {attempt + 1}")
-                if attempt == retries - 1:
-                    logger.error("OpenAI request failed after all retries due to timeout")
-                    return None
-            except Exception as e:
-                logger.error(f"OpenAI request error: {e}")
-                if attempt == retries - 1:
-                    return None
-                await asyncio.sleep(1)
         
         return None
     
