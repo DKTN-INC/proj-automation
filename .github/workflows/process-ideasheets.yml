@@ -94,6 +94,8 @@ jobs:
 
       - name: Process ideasheets
         if: steps.changed-files.outputs.has_changes == 'true'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
           echo "📝 Processing ideasheets with enhanced features..."
           MODE="${{ github.event.inputs.output_format }}"
@@ -118,7 +120,7 @@ jobs:
             for file in $CHANGED_FILES; do
               if [ -f "$file" ]; then
                 echo "Processing: $file"
-                python scripts/markdown_processor.py "$file" -o output -v $PROCESS_ARGS
+                python scripts/markdown_processor.py "$file" -o output -v $PROCESS_ARGS --discord
               fi
             done
           fi
