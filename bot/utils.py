@@ -248,21 +248,37 @@ class FileProcessor:
     @staticmethod
     async def detect_language(code: str) -> str:
         """Detect programming language from code snippet."""
-        # Simple language detection based on syntax patterns
-        if 'def ' in code and 'import ' in code:
+        code_lower = code.lower()
+        
+        # Python patterns
+        if any(pattern in code for pattern in ['def ', 'import ', 'from ', 'print(', '__init__']):
             return 'python'
-        elif 'function ' in code and ('var ' in code or 'let ' in code or 'const ' in code):
+        
+        # JavaScript patterns  
+        if any(pattern in code for pattern in ['function ', 'var ', 'let ', 'const ', 'console.log']):
             return 'javascript'
-        elif 'public class ' in code or 'import java' in code:
+        
+        # Java patterns
+        if any(pattern in code for pattern in ['public class ', 'public static void main', 'import java']):
             return 'java'
-        elif '#include ' in code or 'int main(' in code:
+        
+        # C++ patterns
+        if any(pattern in code for pattern in ['#include ', 'int main(', 'std::', 'cout']):
             return 'cpp'
-        elif 'function ' in code and 'end' in code:
-            return 'lua'
-        elif 'package ' in code and 'func ' in code:
+        
+        # Go patterns
+        if any(pattern in code for pattern in ['package ', 'func main(', 'import (', 'fmt.']):
             return 'go'
-        else:
-            return 'text'
+        
+        # Rust patterns
+        if any(pattern in code for pattern in ['fn main(', 'use std::', 'let mut']):
+            return 'rust'
+        
+        # Shell/Bash
+        if code.startswith('#!/bin/bash') or code.startswith('#!/bin/sh'):
+            return 'bash'
+        
+        return 'text'
     
     @staticmethod
     async def markdown_to_html(markdown_content: str, title: str = "Document") -> str:
