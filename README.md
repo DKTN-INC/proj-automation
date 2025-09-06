@@ -7,10 +7,13 @@ A professional automation platform integrating Discord and GitHub for modern tea
 ## Overview
 
 Project Automation provides:
-- **Discord bot** for real-time team collaboration, Q&A, and summarization
+- **Advanced Discord bot** with AI-powered features for team collaboration
+- **DM markdown intake** with automatic saving to docs/ideasheets/ and AI tagging
+- **OCR and voice transcription** for image and audio processing
+- **Code review automation** with flake8 integration and AI-generated test stubs
 - **Automated PDF generation** from Markdown files with professional styling
+- **GitHub integration** for PR creation and issue tracking
 - **CI/CD pipeline** for converting docs to PDFs and publishing them to Discord
-- **GitHub Actions integration** for seamless workflow automation
 
 Perfect for technical teams, open source communities, and anyone looking to automate knowledge sharing between chat and code.
 
@@ -18,39 +21,67 @@ Perfect for technical teams, open source communities, and anyone looking to auto
 
 ## Features
 
-### Discord Bot Commands
-- **`/ask <question>`**: Create a threaded discussion for team questions with automatic thread creation and AI-powered response suggestions
-- **`/summarize [channel] [hours]`**: Generate advanced summaries of channel activity with AI insights, participation metrics, and activity analysis
-- **Per-User Cooldowns**: Rate limiting to prevent spam (30s for /ask, 60s for /summarize)
-- **Thread Management**: Automatic thread creation for organized discussions
-- **Rich Embeds**: Professional message formatting with timestamps and metadata
-- **Smart Message Chunking**: Handles long responses by safely splitting them across multiple messages
+### 🤖 Discord Bot Commands
 
-### AI & Advanced Features
-- **OpenAI Integration**: AI-powered question answering and text summarization
-- **Thread Pool Processing**: CPU-intensive tasks offloaded from main bot loop
-- **Structured Logging**: JSON-formatted logs with contextual information for monitoring
-- **Async Architecture**: High-performance async operations for better responsiveness
-- **Error Recovery**: Graceful handling of API failures and network issues
+#### Slash Commands
+- `/ask <question>`: Create threaded discussions for team questions with AI-powered response suggestions
+- `/summarize [channel] [hours]`: Generate advanced summaries with participation metrics and insights
+- `/submit-idea <title> <description> [tags]`: Submit ideas to the ideasheets collection
+- `/get-doc <filename> [format]`: Retrieve documents in markdown/html/pdf format
+
+#### Traditional Commands
+- `!createpr <repo> <title> <body>`: Create GitHub pull requests
+- `!google <query>`: Web search using DuckDuckGo
+- `!github_issues <repo> [state] [limit]`: Fetch repository issues
+
+#### Message Behavior & UX
+- Per-user cooldowns: Rate limiting to prevent spam (e.g., 30s for /ask, 60s for /summarize)
+- Thread management: Automatic thread creation for organized discussions
+- Rich embeds: Professional message formatting with timestamps and metadata
+- Smart message chunking: Safely splits long responses across multiple messages
+
+### 🧠 AI & Advanced Features
+- OpenAI integration for question answering, text summarization, and content generation
+- DM Markdown intake: Send markdown via DM, automatically saved to `docs/ideasheets/` with AI tags
+- Voice transcription: Convert voice messages to text (OpenAI Whisper)
+- Image OCR: Extract text from images (pytesseract + preprocessing)
+- Code review: Python linting with flake8 and AI-generated unit test stubs
+- Conversation memory: Persistent per-user history (SQLite)
+- Language detection for code snippets
+- Thread pool processing for CPU-intensive tasks
+- Structured JSON logging with contextual metadata
+- Async architecture and robust error recovery
+
+### 📁 File Processing & Management
+- Admin file uploads to `docs/helpdocs/`
+- Multi-format output: Automatic HTML and PDF generation from Markdown
+- Smart handling for images, audio, and documents
+- Syntax highlighting for enhanced code presentation
+
+### 🔗 External Integrations
+- GitHub API: Create PRs, fetch issues, and manage repositories
+- OpenAI: GPT models for analysis and generation
+- Web search: Built-in search utilities
+- Discord webhooks: Professional notifications with rich embeds
 
 ### Automated PDF Generation
-- **Markdown Processing**: Converts Markdown files to professionally styled PDFs
-- **Template System**: Consistent styling with metadata, timestamps, and branding
-- **Syntax Highlighting**: Code blocks with proper formatting
-- **Table Support**: Full table rendering in PDF output
+- Markdown processing to professionally styled PDFs
+- Template system for consistent branding, metadata, and timestamps
+- Syntax highlighting for code blocks
+- Full table rendering support
 
 ### CI/CD Integration
-- **GitHub Actions Workflow**: Automatically triggered on Markdown file changes
-- **Smart Detection**: Only processes changed files for efficiency
-- **Discord Publishing**: Automatic PDF delivery to Discord channels via webhooks
-- **Artifact Storage**: PDFs stored as GitHub Actions artifacts with 30-day retention
-- **PR Comments**: Automatic status updates on pull requests
+- GitHub Actions workflow automatically triggered on Markdown changes
+- Smart detection to process only changed files
+- Discord publishing via webhooks
+- Artifact storage with 30-day retention
+- Automatic PR comments for status updates
 
 ### Discord Webhook Integration
-- **Professional Notifications**: Rich embeds with file information and metadata
-- **Batch Processing**: Handle multiple PDFs efficiently
-- **Error Handling**: Robust error handling with detailed logging
-- **File Size Validation**: Automatic checking against Discord's 25MB limit
+- Professional notifications with file information and metadata
+- Batch processing for multiple PDFs
+- Robust error handling and detailed logging
+- File size validation against Discord’s 25MB limit
 
 ---
 
@@ -67,30 +98,29 @@ pip install -r requirements.txt
 **System Requirements:**
 - Python 3.8+
 - wkhtmltopdf (for PDF generation)
+- tesseract-ocr (for OCR functionality)
 
 ```sh
 # Ubuntu/Debian
-sudo apt-get install wkhtmltopdf
+sudo apt-get install wkhtmltopdf tesseract-ocr
 
 # macOS
-brew install wkhtmltopdf
+brew install wkhtmltopdf tesseract
 
 # Windows
 # Download from: https://wkhtmltopdf.org/downloads.html
+# Download tesseract from: https://github.com/UB-Mannheim/tesseract/wiki
 ```
 
 ### 2. Configure Discord Bot
 
-1. **Create Discord Application:**
-   - Go to [Discord Developer Portal](https://discord.com/developers/applications)
-   - Click "New Application" and give it a name
-   - Go to "Bot" section and click "Add Bot"
-   - Copy the bot token
+1. Create Discord Application:
+   - Go to the [Discord Developer Portal](https://discord.com/developers/applications)
+   - Create a New Application, then add a Bot and copy the bot token
 
-2. **Set Bot Permissions:**
-   - In Discord Developer Portal, go to "OAuth2" → "URL Generator"
-   - Select "bot" and "applications.commands" scopes
-   - Select these bot permissions:
+2. Set Bot Permissions:
+   - In "OAuth2" → "URL Generator", select scopes: `bot`, `applications.commands`
+   - Recommended bot permissions:
      - Send Messages
      - Use Slash Commands
      - Create Public Threads
@@ -98,55 +128,59 @@ brew install wkhtmltopdf
      - Embed Links
      - Attach Files
 
-3. **Configure Environment:**
+3. Configure Environment:
    ```sh
    cp bot/.env.template bot/.env
-   # Edit bot/.env and add your credentials:
-   # DISCORD_BOT_TOKEN=your_discord_bot_token
-   # OPENAI_API_KEY=your_openai_api_key  # Optional for AI features
-   # LOG_LEVEL=INFO
-   # STRUCTURED_LOGS=false
    ```
 
-4. **Validate Setup:**
-   ```sh
-   python setup_bot.py
+   Example `.env` values:
+   ```
+   DISCORD_BOT_TOKEN=your_discord_bot_token
+   OPENAI_API_KEY=your_openai_api_key            # optional for AI features
+   GITHUB_TOKEN=your_github_token                # required for GitHub integration
+   ADMIN_USER_IDS=123456789012345678,987654321098765432  # comma-separated Discord user IDs
+   LOG_LEVEL=INFO
+   STRUCTURED_LOGS=false
    ```
 
-5. **Run the Bot:**
+4. Run the Bot:
    ```sh
    cd bot
    python main.py
    ```
 
+   The bot will:
+   - Initialize SQLite database for conversation memory
+   - Validate configuration and show available features
+   - Sync slash commands with Discord
+   - Begin monitoring for DMs and code blocks
+
 ### 3. Configure GitHub Actions
 
-1. **Set Repository Secrets:**
-   - Go to your GitHub repository settings
-   - Navigate to "Secrets and variables" → "Actions"
-   - Add these secrets:
-     - `DISCORD_WEBHOOK_URL`: Your Discord webhook URL for PDF notifications
+1. Set Repository Secrets:
+   - Repository Settings → "Secrets and variables" → "Actions"
+   - Add:
+     - `DISCORD_WEBHOOK_URL` — webhook for PDF notifications
 
-2. **Create Discord Webhook:**
-   - In your Discord server, go to channel settings
-   - Go to "Integrations" → "Webhooks"
-   - Click "New Webhook" and copy the URL
+2. Create Discord Webhook:
+   - Discord channel settings → Integrations → Webhooks → New Webhook
+   - Copy the Webhook URL
 
 ### 4. Test the Platform
 
-1. **Test PDF Conversion:**
+1. Test PDF Conversion:
    ```sh
    python scripts/md_to_pdf.py docs/ideasheets/sample_idea.md -o output/
    ```
 
-2. **Test Discord Integration (with valid webhook):**
+2. Test Discord Integration (with valid webhook):
    ```sh
    python scripts/send_pdf_to_discord.py output/sample_idea.pdf \
      --webhook "YOUR_WEBHOOK_URL" \
      --message "Test PDF from automation platform"
    ```
 
-3. **Test Complete Workflow:**
+3. Test Complete Workflow:
    - Create a new Markdown file in `docs/ideasheets/`
    - Commit and push to GitHub
    - Watch GitHub Actions run the automation workflow
@@ -162,16 +196,22 @@ proj-automation/
 │       ├── daily-standup.yml   # Daily standup workflow
 │       └── standup-multi-channel.yml
 ├── bot/
-│   ├── main.py                 # Discord bot with /ask and /summarize
-│   └── .env.template           # Environment template
+│   ├── main.py                 # Enhanced Discord bot with AI features
+│   ├── config.py               # Configuration management
+│   ├── utils.py                # AI, OCR, file processing utilities
+│   ├── requirements.txt        # Bot-specific dependencies
+│   ├── .env.template           # Environment template
+│   └── conversation_memory.db  # SQLite database (auto-created)
 ├── docs/
-│   └── ideasheets/
-│       ├── README.md
-│       └── sample_idea.md      # Example idea sheet
+│   ├── ideasheets/            # Auto-generated from DM submissions
+│   ├── helpdocs/              # Admin-uploaded documentation
+│   ├── bot-integration.md     # Comprehensive bot documentation
+│   └── PROCESSING_DOCUMENTATION.md
+├── output/                    # Generated HTML/PDF files
 ├── scripts/
 │   ├── md_to_pdf.py           # Markdown to PDF converter
 │   └── send_pdf_to_discord.py # Discord webhook sender
-├── requirements.txt            # Python dependencies
+├── requirements.txt            # All Python dependencies
 ├── .gitignore
 └── README.md
 ```
@@ -182,17 +222,17 @@ proj-automation/
 
 ### Discord Bot Commands
 
-**Ask a Question:**
+Ask a question:
 ```
 /ask How should we implement user authentication?
 ```
-This creates a threaded discussion where team members can collaborate.
+Creates a threaded discussion with AI response suggestions.
 
-**Summarize Channel Activity:**
+Summarize channel activity:
 ```
 /summarize #general 24
 ```
-This generates a summary of the last 24 hours of activity in the #general channel.
+Generates a summary of the last 24 hours of activity.
 
 ### Creating Idea Sheets
 
@@ -204,7 +244,7 @@ This generates a summary of the last 24 hours of activity in the #general channe
    - Post the PDF to your Discord channel
    - Store the PDF as a workflow artifact
 
-**Example Idea Sheet Structure:**
+Example idea sheet:
 ```markdown
 # My Great Idea
 
@@ -226,7 +266,7 @@ Technical details...
 
 ### Manual Script Usage
 
-**Convert Markdown to PDF:**
+Convert Markdown to PDF:
 ```sh
 # Single file
 python scripts/md_to_pdf.py my_document.md
@@ -238,7 +278,7 @@ python scripts/md_to_pdf.py docs/ideasheets/ -o output/
 python scripts/md_to_pdf.py document.md -o output/ --verbose
 ```
 
-**Send PDF to Discord:**
+Send PDF to Discord:
 ```sh
 # Single PDF
 python scripts/send_pdf_to_discord.py document.pdf \
@@ -256,26 +296,23 @@ python scripts/send_pdf_to_discord.py output/*.pdf \
 ## GitHub Actions Workflow
 
 The automation workflow (`.github/workflows/automation.yml`) is triggered by:
+- Push events that modify files in `docs/ideasheets/*.md`
+- Pull requests that modify idea sheet files
+- Manual workflow dispatch with an option to process all files
 
-- **Push events** that modify files in `docs/ideasheets/*.md`
-- **Pull requests** that modify idea sheet files
-- **Manual workflow dispatch** with option to process all files
-
-### Workflow Features:
-
-- **Smart file detection**: Only processes changed Markdown files
-- **PDF generation**: Converts Markdown to styled PDFs
-- **Discord integration**: Automatically posts PDFs to Discord
-- **Artifact storage**: Saves PDFs as downloadable artifacts
-- **PR comments**: Updates pull requests with processing status
-- **Error handling**: Comprehensive logging and error reporting
+### Workflow Features
+- Smart file detection: Only processes changed Markdown files
+- PDF generation: Converts Markdown to styled PDFs
+- Discord integration: Posts PDFs to Discord
+- Artifact storage: Saves PDFs as downloadable artifacts
+- PR comments: Updates pull requests with processing status
+- Error handling: Comprehensive logging and error reporting
 
 ---
 
 ## Contributing
 
 We welcome contributions! Please follow these steps:
-
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/amazing-feature`
 3. Make your changes and test them
@@ -284,17 +321,14 @@ We welcome contributions! Please follow these steps:
 6. Submit a pull request
 
 ### Development Setup
-
 1. Install development dependencies:
    ```sh
    pip install -r requirements.txt
    ```
-
 2. Run tests (if you create any):
    ```sh
    python -m pytest tests/
    ```
-
 3. Test your changes with the sample idea sheet:
    ```sh
    python scripts/md_to_pdf.py docs/ideasheets/sample_idea.md -o test_output/
@@ -306,22 +340,22 @@ We welcome contributions! Please follow these steps:
 
 ### Common Issues
 
-**PDF generation fails:**
+PDF generation fails:
 - Ensure `wkhtmltopdf` is installed and in your PATH
 - Check that the Markdown file is valid
 - Verify you have write permissions to the output directory
 
-**Discord bot not responding:**
+Discord bot not responding:
 - Check that the bot token is correct in your `.env` file
 - Verify the bot has the required permissions in your Discord server
 - Ensure the bot is online and connected
 
-**GitHub Actions workflow fails:**
+GitHub Actions workflow fails:
 - Check that `DISCORD_WEBHOOK_URL` secret is set correctly
 - Verify the webhook URL is valid and the channel exists
 - Check the Actions logs for specific error messages
 
-**PDF not sent to Discord:**
+PDF not sent to Discord:
 - Verify the webhook URL is correct and active
 - Check that the PDF file size is under 25MB
 - Ensure your Discord server allows webhook messages

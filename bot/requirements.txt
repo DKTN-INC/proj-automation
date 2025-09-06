@@ -1,0 +1,53 @@
+# Discord Bot Specific Requirements
+# Core Discord and bot functionality
+discord.py>=2.3.0
+python-dotenv>=1.0.0
+
+# AI and OpenAI integration
+openai>=1.0.0
+tiktoken>=0.5.0
+
+# File processing and OCR
+Pillow>=10.0.0
+pytesseract>=0.3.10
+
+# Audio processing for voice transcription
+pydub>=0.25.1
+
+# Database for conversation memory
+aiosqlite>=0.19.0
+
+# Code analysis and linting
+flake8>=6.0.0
+ast-analyze>=1.0.0
+
+# GitHub API integration
+PyGithub>=1.59.0
+
+# Web scraping and search (for !google command)
+beautifulsoup4>=4.12.0
+aiohttp>=3.8.0
+
+# Markdown processing and conversion
+markdown>=3.5.0
+Jinja2>=3.1.0
+pdfkit>=1.0.0
+weasyprint>=59.0
+
+# Enhanced markdown features
+pymdown-extensions>=10.0.0
+
+# File type detection
+python-magic>=0.4.27
+
+# Date and time utilities
+python-dateutil>=2.8.0
+
+# Async utilities
+asyncio-throttle>=1.0.0
+
+# Logging and error handling
+colorama>=0.4.6
+
+# Image processing utilities
+opencv-python-headless>=4.8.0
