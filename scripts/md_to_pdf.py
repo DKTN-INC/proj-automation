@@ -4,7 +4,6 @@ Markdown to PDF Converter
 Converts Markdown files to PDFs using pdfkit and wkhtmltopdf
 """
 
-import os
 import sys
 import argparse
 import markdown
@@ -13,12 +12,15 @@ from pathlib import Path
 import logging
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
+
 
 def markdown_to_html(md_content, title="Document"):
     """Convert markdown content to HTML with styling."""
-    
+
     # HTML template with basic styling
     html_template = """
 <!DOCTYPE html>
@@ -130,51 +132,52 @@ def markdown_to_html(md_content, title="Document"):
 </body>
 </html>
 """
-    
+
     # Configure markdown extensions
-    md = markdown.Markdown(extensions=[
-        'extra',          # Tables, footnotes, etc.
-        'codehilite',     # Code syntax highlighting
-        'toc',            # Table of contents
-        'sane_lists',     # Better list handling
-    ])
-    
+    md = markdown.Markdown(
+        extensions=[
+            "extra",  # Tables, footnotes, etc.
+            "codehilite",  # Code syntax highlighting
+            "toc",  # Table of contents
+            "sane_lists",  # Better list handling
+        ]
+    )
+
     # Convert markdown to HTML
     html_content = md.convert(md_content)
-    
+
     # Get current timestamp
     from datetime import datetime
+
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
+
     # Fill in the template
     return html_template.format(
-        title=title,
-        content=html_content,
-        timestamp=timestamp,
-        source_file=title
+        title=title, content=html_content, timestamp=timestamp, source_file=title
     )
+
 
 def convert_md_to_pdf(md_file_path, output_dir=None, custom_options=None):
     """
     Convert a Markdown file to PDF.
-    
+
     Args:
         md_file_path (str): Path to the markdown file
         output_dir (str): Output directory for PDF (default: same as input)
         custom_options (dict): Custom wkhtmltopdf options
-    
+
     Returns:
         str: Path to the generated PDF file
     """
     md_path = Path(md_file_path)
-    
+
     if not md_path.exists():
         raise FileNotFoundError(f"Markdown file not found: {md_file_path}")
-    
+
     # Read markdown content
-    with open(md_path, 'r', encoding='utf-8') as f:
+    with open(md_path, "r", encoding="utf-8") as f:
         md_content = f.read()
-    
+
     # Determine output path
     if output_dir:
         output_path = Path(output_dir)
@@ -182,88 +185,96 @@ def convert_md_to_pdf(md_file_path, output_dir=None, custom_options=None):
         pdf_path = output_path / f"{md_path.stem}.pdf"
     else:
         pdf_path = md_path.parent / f"{md_path.stem}.pdf"
-    
+
     # Convert to HTML
-    title = md_path.stem.replace('_', ' ').replace('-', ' ').title()
+    title = md_path.stem.replace("_", " ").replace("-", " ").title()
     html_content = markdown_to_html(md_content, title)
-    
+
     # wkhtmltopdf options
     options = {
-        'page-size': 'A4',
-        'margin-top': '0.75in',
-        'margin-right': '0.75in',
-        'margin-bottom': '0.75in',
-        'margin-left': '0.75in',
-        'encoding': "UTF-8",
-        'no-outline': None,
-        'enable-local-file-access': None,
+        "page-size": "A4",
+        "margin-top": "0.75in",
+        "margin-right": "0.75in",
+        "margin-bottom": "0.75in",
+        "margin-left": "0.75in",
+        "encoding": "UTF-8",
+        "no-outline": None,
+        "enable-local-file-access": None,
     }
-    
+
     # Update with custom options if provided
     if custom_options:
         options.update(custom_options)
-    
+
     try:
         # Convert HTML to PDF
         pdfkit.from_string(html_content, str(pdf_path), options=options)
         logger.info(f"Successfully converted {md_path.name} to {pdf_path}")
         return str(pdf_path)
-        
+
     except Exception as e:
         logger.error(f"Error converting {md_path.name} to PDF: {e}")
         raise
 
+
 def convert_directory(input_dir, output_dir=None, pattern="*.md"):
     """
     Convert all Markdown files in a directory to PDFs.
-    
+
     Args:
         input_dir (str): Input directory containing markdown files
         output_dir (str): Output directory for PDFs
         pattern (str): File pattern to match (default: "*.md")
-    
+
     Returns:
         list: Paths to generated PDF files
     """
     input_path = Path(input_dir)
-    
+
     if not input_path.exists():
         raise FileNotFoundError(f"Input directory not found: {input_dir}")
-    
+
     # Find all markdown files
     md_files = list(input_path.glob(pattern))
-    
+
     if not md_files:
-        logger.warning(f"No markdown files found in {input_dir} matching pattern {pattern}")
+        logger.warning(
+            f"No markdown files found in {input_dir} matching pattern {pattern}"
+        )
         return []
-    
+
     pdf_files = []
-    
+
     for md_file in md_files:
         try:
             pdf_path = convert_md_to_pdf(str(md_file), output_dir)
             pdf_files.append(pdf_path)
         except Exception as e:
             logger.error(f"Failed to convert {md_file}: {e}")
-    
+
     logger.info(f"Converted {len(pdf_files)} out of {len(md_files)} markdown files")
     return pdf_files
 
+
 def main():
     """Main CLI function."""
-    parser = argparse.ArgumentParser(description='Convert Markdown files to PDF')
-    parser.add_argument('input', help='Input markdown file or directory')
-    parser.add_argument('-o', '--output', help='Output directory for PDFs')
-    parser.add_argument('--pattern', default='*.md', help='File pattern for directory mode (default: *.md)')
-    parser.add_argument('--verbose', '-v', action='store_true', help='Verbose output')
-    
+    parser = argparse.ArgumentParser(description="Convert Markdown files to PDF")
+    parser.add_argument("input", help="Input markdown file or directory")
+    parser.add_argument("-o", "--output", help="Output directory for PDFs")
+    parser.add_argument(
+        "--pattern",
+        default="*.md",
+        help="File pattern for directory mode (default: *.md)",
+    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
+
     args = parser.parse_args()
-    
+
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
-    
+
     input_path = Path(args.input)
-    
+
     try:
         if input_path.is_file():
             # Convert single file
@@ -278,10 +289,11 @@ def main():
         else:
             print(f"Error: {args.input} is not a valid file or directory")
             sys.exit(1)
-            
+
     except Exception as e:
         logger.error(f"Conversion failed: {e}")
         sys.exit(1)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

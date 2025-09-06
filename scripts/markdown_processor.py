@@ -9,26 +9,24 @@ and AI summarization features for markdown files.
 import os
 import sys
 import re
-import json
 import argparse
-from pathlib import Path
-from typing import List, Dict, Optional, Tuple
+from typing import Dict, Optional
 import markdown
-from markdown.extensions import toc, codehilite, tables, fenced_code
 import weasyprint
-from jinja2 import Template, Environment, FileSystemLoader
-import hashlib
+from jinja2 import Environment, FileSystemLoader
 import datetime
 
 
 class MarkdownProcessor:
     """Main class for processing markdown files with enhanced features."""
-    
+
     def __init__(self, template_dir: Optional[str] = None):
         """Initialize the processor with optional template directory."""
-        self.template_dir = template_dir or os.path.join(os.path.dirname(__file__), 'templates')
+        self.template_dir = template_dir or os.path.join(
+            os.path.dirname(__file__), "templates"
+        )
         self.setup_jinja_env()
-        
+
     def setup_jinja_env(self):
         """Setup Jinja2 environment for HTML templating."""
         try:
@@ -123,31 +121,31 @@ class MarkdownProcessor:
     {% endif %}
 </body>
 </html>"""
-        
-        template_path = os.path.join(self.template_dir, 'default.html')
-        with open(template_path, 'w', encoding='utf-8') as f:
+
+        template_path = os.path.join(self.template_dir, "default.html")
+        with open(template_path, "w", encoding="utf-8") as f:
             f.write(default_template)
 
     def extract_title(self, markdown_content: str) -> str:
         """Extract title from markdown content."""
-        lines = markdown_content.split('\n')
+        lines = markdown_content.split("\n")
         for line in lines:
-            if line.strip().startswith('# '):
+            if line.strip().startswith("# "):
                 return line.strip()[2:].strip()
         return "Untitled Document"
 
     def generate_summary(self, content: str, max_length: int = 200) -> str:
         """Generate a simple extractive summary of the content."""
         # Remove markdown syntax for better summary
-        clean_content = re.sub(r'[#*`\[\]()]', '', content)
-        clean_content = re.sub(r'\n+', ' ', clean_content)
-        
-        sentences = re.split(r'[.!?]+', clean_content)
+        clean_content = re.sub(r"[#*`\[\]()]", "", content)
+        clean_content = re.sub(r"\n+", " ", clean_content)
+
+        sentences = re.split(r"[.!?]+", clean_content)
         sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
-        
+
         if not sentences:
             return "No content available for summary."
-        
+
         # Take first few sentences up to max_length
         summary = ""
         for sentence in sentences[:3]:  # Limit to first 3 sentences
@@ -155,83 +153,78 @@ class MarkdownProcessor:
                 summary += sentence + ". "
             else:
                 break
-        
+
         return summary.strip() or sentences[0][:max_length] + "..."
 
     def count_words(self, text: str) -> int:
         """Count words in text."""
         # Remove markdown syntax and count words
-        clean_text = re.sub(r'[#*`\[\]()]', '', text)
-        words = re.findall(r'\b\w+\b', clean_text)
+        clean_text = re.sub(r"[#*`\[\]()]", "", text)
+        words = re.findall(r"\b\w+\b", clean_text)
         return len(words)
 
-    def process_markdown_to_html(self, markdown_content: str, file_path: Optional[str] = None) -> Dict:
+    def process_markdown_to_html(
+        self, markdown_content: str, file_path: Optional[str] = None
+    ) -> Dict:
         """Process markdown content to HTML with TOC and summary."""
         try:
             # Setup markdown processor with extensions
-            md = markdown.Markdown(extensions=[
-                'toc',
-                'codehilite',
-                'tables',
-                'fenced_code',
-                'nl2br'
-            ])
-            
+            md = markdown.Markdown(
+                extensions=["toc", "codehilite", "tables", "fenced_code", "nl2br"]
+            )
+
             # Convert markdown to HTML
             html_content = md.convert(markdown_content)
-            
+
             # Extract title
             title = self.extract_title(markdown_content)
-            
+
             # Generate summary
             summary = self.generate_summary(markdown_content)
-            
+
             # Get table of contents
-            toc_html = getattr(md, 'toc', '')
-            
+            toc_html = getattr(md, "toc", "")
+
             # Generate metadata
             metadata = {
-                'generated_at': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'file_path': file_path,
-                'word_count': self.count_words(markdown_content)
+                "generated_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "file_path": file_path,
+                "word_count": self.count_words(markdown_content),
             }
-            
+
             return {
-                'title': title,
-                'content': html_content,
-                'toc': toc_html,
-                'summary': summary,
-                'metadata': metadata,
-                'success': True
+                "title": title,
+                "content": html_content,
+                "toc": toc_html,
+                "summary": summary,
+                "metadata": metadata,
+                "success": True,
             }
-            
+
         except Exception as e:
-            return {
-                'error': f"Error processing markdown: {str(e)}",
-                'success': False
-            }
+            return {"error": f"Error processing markdown: {str(e)}", "success": False}
 
     def render_template(self, template_name: str, **kwargs) -> str:
         """Render HTML template with given context."""
         try:
             if not self.jinja_env:
                 raise Exception("Jinja environment not initialized")
-                
+
             template = self.jinja_env.get_template(template_name)
             return template.render(**kwargs)
         except Exception as e:
             print(f"Error rendering template: {e}", file=sys.stderr)
             # Fallback to simple HTML
             return f"""<!DOCTYPE html>
-<html><head><title>{kwargs.get('title', 'Document')}</title></head>
-<body>{kwargs.get('content', '')}</body></html>"""
+<html><head><title>{kwargs.get("title", "Document")}</title></head>
+<body>{kwargs.get("content", "")}</body></html>"""
 
     def convert_to_pdf(self, html_content: str, output_path: str) -> bool:
         """Convert HTML content to PDF."""
         try:
             # Create output directory if it doesn't exist
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            
+
             # Convert HTML to PDF
             html_doc = weasyprint.HTML(string=html_content)
             html_doc.write_pdf(output_path)
@@ -240,120 +233,146 @@ class MarkdownProcessor:
             print(f"Error converting to PDF: {e}", file=sys.stderr)
             return False
 
-    def process_file(self, input_path: str, output_dir: str, template_name: str = 'default.html') -> Dict:
+    def process_file(
+        self, input_path: str, output_dir: str, template_name: str = "default.html"
+    ) -> Dict:
         """Process a single markdown file."""
         try:
             # Validate input file
             if not os.path.exists(input_path):
-                return {'error': f"Input file not found: {input_path}", 'success': False}
-            
-            if not input_path.lower().endswith('.md'):
-                return {'error': f"Input file must be a markdown file: {input_path}", 'success': False}
-            
+                return {
+                    "error": f"Input file not found: {input_path}",
+                    "success": False,
+                }
+
+            if not input_path.lower().endswith(".md"):
+                return {
+                    "error": f"Input file must be a markdown file: {input_path}",
+                    "success": False,
+                }
+
             # Read markdown content
-            with open(input_path, 'r', encoding='utf-8') as f:
+            with open(input_path, "r", encoding="utf-8") as f:
                 markdown_content = f.read()
-            
+
             if not markdown_content.strip():
-                return {'error': f"Input file is empty: {input_path}", 'success': False}
-            
+                return {"error": f"Input file is empty: {input_path}", "success": False}
+
             # Process markdown
             result = self.process_markdown_to_html(markdown_content, input_path)
-            if not result['success']:
+            if not result["success"]:
                 return result
-            
+
             # Create output directory
             os.makedirs(output_dir, exist_ok=True)
-            
+
             # Generate output filename
             base_name = os.path.splitext(os.path.basename(input_path))[0]
             html_output = os.path.join(output_dir, f"{base_name}.html")
             pdf_output = os.path.join(output_dir, f"{base_name}.pdf")
-            
+
             # Render HTML template
             html_content = self.render_template(template_name, **result)
-            
+
             # Write HTML file
-            with open(html_output, 'w', encoding='utf-8') as f:
+            with open(html_output, "w", encoding="utf-8") as f:
                 f.write(html_content)
-            
+
             # Convert to PDF
             pdf_success = self.convert_to_pdf(html_content, pdf_output)
-            
+
             return {
-                'success': True,
-                'html_output': html_output,
-                'pdf_output': pdf_output if pdf_success else None,
-                'title': result['title'],
-                'summary': result['summary'],
-                'word_count': result['metadata']['word_count']
+                "success": True,
+                "html_output": html_output,
+                "pdf_output": pdf_output if pdf_success else None,
+                "title": result["title"],
+                "summary": result["summary"],
+                "word_count": result["metadata"]["word_count"],
             }
-            
+
         except Exception as e:
-            return {'error': f"Error processing file {input_path}: {str(e)}", 'success': False}
+            return {
+                "error": f"Error processing file {input_path}: {str(e)}",
+                "success": False,
+            }
 
 
 def main():
     """Main function for command-line usage."""
-    parser = argparse.ArgumentParser(description='Process markdown files with HTML templating and AI summarization')
-    parser.add_argument('input', help='Input markdown file or directory')
-    parser.add_argument('-o', '--output', default='output', help='Output directory (default: output)')
-    parser.add_argument('-t', '--template', default='default.html', help='HTML template name (default: default.html)')
-    parser.add_argument('--template-dir', help='Custom template directory')
-    parser.add_argument('--pdf-only', action='store_true', help='Generate only PDF output')
-    parser.add_argument('--html-only', action='store_true', help='Generate only HTML output')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
-    
+    parser = argparse.ArgumentParser(
+        description="Process markdown files with HTML templating and AI summarization"
+    )
+    parser.add_argument("input", help="Input markdown file or directory")
+    parser.add_argument(
+        "-o", "--output", default="output", help="Output directory (default: output)"
+    )
+    parser.add_argument(
+        "-t",
+        "--template",
+        default="default.html",
+        help="HTML template name (default: default.html)",
+    )
+    parser.add_argument("--template-dir", help="Custom template directory")
+    parser.add_argument(
+        "--pdf-only", action="store_true", help="Generate only PDF output"
+    )
+    parser.add_argument(
+        "--html-only", action="store_true", help="Generate only HTML output"
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+
     args = parser.parse_args()
-    
+
     # Initialize processor
     processor = MarkdownProcessor(template_dir=args.template_dir)
-    
+
     # Process input
     if os.path.isfile(args.input):
         # Single file
         result = processor.process_file(args.input, args.output, args.template)
-        if result['success']:
+        if result["success"]:
             print(f"✅ Processed: {args.input}")
             print(f"   Title: {result['title']}")
             print(f"   Summary: {result['summary']}")
             print(f"   Word count: {result['word_count']}")
-            if result.get('html_output'):
+            if result.get("html_output"):
                 print(f"   HTML: {result['html_output']}")
-            if result.get('pdf_output'):
+            if result.get("pdf_output"):
                 print(f"   PDF: {result['pdf_output']}")
         else:
             print(f"❌ Error: {result['error']}", file=sys.stderr)
             sys.exit(1)
-    
+
     elif os.path.isdir(args.input):
         # Directory
         markdown_files = []
         for root, dirs, files in os.walk(args.input):
             for file in files:
-                if file.lower().endswith('.md'):
+                if file.lower().endswith(".md"):
                     markdown_files.append(os.path.join(root, file))
-        
+
         if not markdown_files:
             print(f"No markdown files found in {args.input}", file=sys.stderr)
             sys.exit(1)
-        
+
         successful = 0
         for md_file in markdown_files:
             result = processor.process_file(md_file, args.output, args.template)
-            if result['success']:
+            if result["success"]:
                 successful += 1
                 if args.verbose:
                     print(f"✅ Processed: {md_file}")
             else:
-                print(f"❌ Error processing {md_file}: {result['error']}", file=sys.stderr)
-        
+                print(
+                    f"❌ Error processing {md_file}: {result['error']}", file=sys.stderr
+                )
+
         print(f"Processed {successful}/{len(markdown_files)} files successfully")
-    
+
     else:
         print(f"Input path not found: {args.input}", file=sys.stderr)
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
