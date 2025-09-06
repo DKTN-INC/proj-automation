@@ -380,7 +380,8 @@ async def handle_dm_attachments(message: discord.Message):
             max_size = getattr(config, "max_file_size", 25 * 1024 * 1024)
             if attachment.size > max_size:
                 await message.reply(
-                    f"❌ File too large: {attachment.filename} ({attachment.size / 1024 / 1024:.1f}MB > 25MB)"
+                    f"❌ File too large: {attachment.filename} "
+                    f"({attachment.size / 1024 / 1024:.1f}MB > 25MB)"
                 )
                 continue
 
@@ -549,7 +550,10 @@ async def handle_dm_conversation(message: discord.Message):
         except Exception:
             pass
 
-        response = "Thanks for your message! I've noted it down. You can use `/submit-idea` to submit ideas, or send markdown directly."
+        response = (
+            "Thanks for your message! I've noted it down. You can use `/submit-idea` to "
+            "submit ideas, or send markdown directly."
+        )
         if history:
             response += f"\n\nWe've had {len(history)} previous conversations."
 
@@ -689,7 +693,9 @@ async def submit_idea_command(
 
         embed = discord.Embed(
             title="✅ Idea Submitted Successfully",
-            description=f"**Title:** {title}\n**File:** `{filename}`\n**Tags:** {', '.join(tag_list)}",
+            description=(
+                f"**Title:** {title}\n**File:** `{filename}`\n**Tags:** {', '.join(tag_list)}"
+            ),
             color=0x2ECC71,
             timestamp=datetime.utcnow(),
         )
@@ -922,7 +928,8 @@ async def summarize_command(
             f"**📊 Summary of {target_channel.mention} - Last {hours} hours**\n\n"
             f"**Messages analyzed:** {analysis['total_messages']}\n"
             f"**Unique users:** {analysis['unique_users']}\n"
-            f"**Time period:** {threshold.strftime('%Y-%m-%d %H:%M')} - {datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC\n\n"
+            f"**Time period:** {threshold.strftime('%Y-%m-%d %H:%M')} - "
+            f"{datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC\n\n"
             "**👥 Participation:**\n"
         )
 
@@ -932,7 +939,10 @@ async def summarize_command(
         )
 
         for author, stats in sorted_users[:10]:
-            summary_text += f"• {author}: {stats.get('message_count', 0)} messages, {stats.get('reactions_received', 0)} reactions\n"
+            summary_text += (
+                f"• {author}: {stats.get('message_count', 0)} messages, "
+                f"{stats.get('reactions_received', 0)} reactions\n"
+            )
 
         if analysis.get("most_active_hours"):
             summary_text += "\n**⏰ Most Active Hours:**\n"
@@ -1016,7 +1026,10 @@ async def health_command(interaction: discord.Interaction, detailed: bool = Fals
 
             embed.add_field(
                 name="Overall Status",
-                value=f"{status_emoji.get(health_status.overall_status, '❓')} {health_status.overall_status.title()}",
+                value=(
+                    f"{status_emoji.get(health_status.overall_status, '❓')} "
+                    f"{health_status.overall_status.title()}"
+                ),
                 inline=False,
             )
 
@@ -1043,7 +1056,10 @@ async def health_command(interaction: discord.Interaction, detailed: bool = Fals
 
                 embed.add_field(
                     name="Health Summary",
-                    value=f"✅ Healthy: {healthy_count}\n⚠️ Warning: {warning_count}\n❌ Critical: {critical_count}",
+                    value=(
+                        f"✅ Healthy: {healthy_count}\n⚠️ Warning: {warning_count}\n"
+                        f"❌ Critical: {critical_count}"
+                    ),
                     inline=False,
                 )
 
@@ -1057,7 +1073,10 @@ async def health_command(interaction: discord.Interaction, detailed: bool = Fals
                             f"Memory: {resource_stats['memory'].get('gc_counts', [0])[0]} objects\n"
                         )
                     if "http_sessions" in resource_stats:
-                        stats_text += f"HTTP Sessions: {resource_stats['http_sessions'].get('active_sessions', 0)}\n"
+                        stats_text += (
+                            f"HTTP Sessions: "
+                            f"{resource_stats['http_sessions'].get('active_sessions', 0)}\n"
+                        )
                     if "files" in resource_stats:
                         stats_text += (
                             f"Temp Files: {resource_stats['files'].get('active_files', 0)}\n"
@@ -1372,7 +1391,8 @@ def main():
             f"  - AI Integration: {'✅' if getattr(ai_helper, 'available', False) else '❌'}"
         )
         logger.info(
-            f"  - GitHub Integration: {'✅' if getattr(github_helper, 'available', False) else '❌'}"
+            f"  - GitHub Integration: "
+            f"{'✅' if getattr(github_helper, 'available', False) else '❌'}"
         )
         admin_ids = getattr(config, "admin_user_ids", []) or []
         logger.info(f"  - Admin Users: {len(admin_ids)}")

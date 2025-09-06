@@ -135,7 +135,7 @@ class ResourceManager(Generic[T]):
         async with self._lock:
             if key in self._resources:
                 resource = self._resources.pop(key)
-                metadata = self._resource_metadata.pop(key, {})
+                self._resource_metadata.pop(key, {})
 
                 await self._cleanup_resource(resource)
                 self._stats.active_count -= 1

@@ -139,7 +139,7 @@ class DiscordWebhookSender:
             }
 
             try:
-                response = self.session.post(self.webhook_url, json=payload, timeout=30)
+                self.session.post(self.webhook_url, json=payload, timeout=30)
             except Exception as e:
                 logger.warning(f"Failed to send batch notification: {e}")
 

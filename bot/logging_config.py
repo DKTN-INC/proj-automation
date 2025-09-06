@@ -115,10 +115,7 @@ def setup_logging(
         root_logger.removeHandler(handler)
 
     # Choose formatter
-    if structured:
-        formatter = StructuredFormatter(service_name)
-    else:
-        formatter = HumanReadableFormatter()
+    formatter = StructuredFormatter(service_name) if structured else HumanReadableFormatter()
 
     # Console handler
     console_handler = logging.StreamHandler(sys.stdout)
