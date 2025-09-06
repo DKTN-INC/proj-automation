@@ -7,10 +7,13 @@ A professional automation platform integrating Discord and GitHub for modern tea
 ## Overview
 
 Project Automation provides:
-- **Discord bot** for real-time team collaboration, Q&A, and summarization
+- **Advanced Discord bot** with AI-powered features for team collaboration
+- **DM markdown intake** with automatic saving to docs/ideasheets/ and AI tagging
+- **OCR and voice transcription** for image and audio processing
+- **Code review automation** with flake8 integration and AI-generated test stubs
 - **Automated PDF generation** from Markdown files with professional styling
+- **GitHub integration** for PR creation and issue tracking
 - **CI/CD pipeline** for converting docs to PDFs and publishing them to Discord
-- **GitHub Actions integration** for seamless workflow automation
 
 Perfect for technical teams, open source communities, and anyone looking to automate knowledge sharing between chat and code.
 
@@ -18,11 +21,38 @@ Perfect for technical teams, open source communities, and anyone looking to auto
 
 ## Features
 
-### Discord Bot Commands
-- **`/ask <question>`**: Create a threaded discussion for team questions with automatic thread creation
-- **`/summarize [channel] [hours]`**: Generate summaries of channel activity with participation metrics and highlights
-- **Thread Management**: Automatic thread creation for organized discussions
-- **Rich Embeds**: Professional message formatting with timestamps and metadata
+### 🤖 Discord Bot Commands
+
+#### Slash Commands
+- **`/ask <question>`**: Create threaded discussions for team questions
+- **`/summarize [channel] [hours]`**: Generate summaries with participation metrics
+- **`/submit-idea <title> <description> [tags]`**: Submit ideas to ideasheets collection
+- **`/get-doc <filename> [format]`**: Retrieve documents in markdown/html/pdf format
+
+#### Traditional Commands  
+- **`!createpr <repo> <title> <body>`**: Create GitHub pull requests
+- **`!google <query>`**: Web search using DuckDuckGo
+- **`!github_issues <repo> [state] [limit]`**: Fetch repository issues
+
+### 🧠 AI-Powered Features
+- **DM Markdown Intake**: Send markdown content via DM, automatically saved with AI tags
+- **Voice Transcription**: Convert voice messages to text using OpenAI Whisper
+- **Image OCR**: Extract text from images using pytesseract with preprocessing
+- **Code Review**: Automatic Python linting with flake8 and AI-generated unit tests
+- **Conversation Memory**: Persistent per-user conversation history with SQLite
+- **Language Detection**: Auto-detect programming languages in code snippets
+
+### 📁 File Processing & Management
+- **Admin File Uploads**: Authorized users can upload files to docs/helpdocs/
+- **Multi-format Output**: Automatic HTML and PDF generation from markdown
+- **Smart File Handling**: Support for images, audio, and document files
+- **Syntax Highlighting**: Enhanced code presentation in responses
+
+### 🔗 External Integrations
+- **GitHub API**: Create PRs, fetch issues, repository management
+- **OpenAI Integration**: GPT models for content analysis and generation
+- **Web Search**: Built-in search functionality
+- **Discord Webhooks**: Professional notifications with rich embeds
 
 ### Automated PDF Generation
 - **Markdown Processing**: Converts Markdown files to professionally styled PDFs
@@ -58,16 +88,18 @@ pip install -r requirements.txt
 **System Requirements:**
 - Python 3.8+
 - wkhtmltopdf (for PDF generation)
+- tesseract-ocr (for OCR functionality)
 
 ```sh
 # Ubuntu/Debian
-sudo apt-get install wkhtmltopdf
+sudo apt-get install wkhtmltopdf tesseract-ocr
 
 # macOS
-brew install wkhtmltopdf
+brew install wkhtmltopdf tesseract
 
 # Windows
 # Download from: https://wkhtmltopdf.org/downloads.html
+# Download tesseract from: https://github.com/UB-Mannheim/tesseract/wiki
 ```
 
 ### 2. Configure Discord Bot
@@ -92,7 +124,11 @@ brew install wkhtmltopdf
 3. **Configure Environment:**
    ```sh
    cp bot/.env.template bot/.env
-   # Edit bot/.env and add your Discord bot token
+   # Edit bot/.env and add your tokens:
+   # - Discord bot token (required)
+   # - OpenAI API key (for AI features)
+   # - GitHub token (for GitHub integration)
+   # - Admin user IDs (for file upload permissions)
    ```
 
 4. **Run the Bot:**
@@ -100,6 +136,12 @@ brew install wkhtmltopdf
    cd bot
    python main.py
    ```
+
+   The bot will automatically:
+   - Initialize SQLite database for conversation memory
+   - Validate configuration and show available features
+   - Sync slash commands with Discord
+   - Begin monitoring for DMs and code blocks
 
 ### 3. Configure GitHub Actions
 
@@ -144,16 +186,22 @@ proj-automation/
 │       ├── daily-standup.yml   # Daily standup workflow
 │       └── standup-multi-channel.yml
 ├── bot/
-│   ├── main.py                 # Discord bot with /ask and /summarize
-│   └── .env.template           # Environment template
+│   ├── main.py                 # Enhanced Discord bot with AI features
+│   ├── config.py               # Configuration management
+│   ├── utils.py                # AI, OCR, file processing utilities
+│   ├── requirements.txt        # Bot-specific dependencies
+│   ├── .env.template           # Environment template
+│   └── conversation_memory.db  # SQLite database (auto-created)
 ├── docs/
-│   └── ideasheets/
-│       ├── README.md
-│       └── sample_idea.md      # Example idea sheet
+│   ├── ideasheets/            # Auto-generated from DM submissions
+│   ├── helpdocs/              # Admin-uploaded documentation
+│   ├── bot-integration.md     # Comprehensive bot documentation
+│   └── PROCESSING_DOCUMENTATION.md
+├── output/                    # Generated HTML/PDF files
 ├── scripts/
 │   ├── md_to_pdf.py           # Markdown to PDF converter
 │   └── send_pdf_to_discord.py # Discord webhook sender
-├── requirements.txt            # Python dependencies
+├── requirements.txt            # All Python dependencies
 ├── .gitignore
 └── README.md
 ```
