@@ -1,4 +1,3 @@
-```yaml name=.github/workflows/markdown-to-pdf.yml
 name: Markdown to PDF Automation
 
 on:
