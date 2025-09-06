@@ -10,6 +10,12 @@ pymdown-extensions>=10.0.0
 # Discord Bot Dependencies
 discord.py>=2.3.0
 
+# OpenAI integration for AI features
+openai>=1.50.0        # Async-compatible OpenAI client
+
+# HTTP client for async operations
+aiohttp>=3.8.0        # Already required by discord.py
+
 # For potential AI integration (optional, lightweight)
 requests>=2.31.0
 
