@@ -59,11 +59,11 @@ def load_settings() -> Settings:
             discord_token=env.get("DISCORD_TOKEN", ""),
             openai_api_key=env.get("OPENAI_API_KEY", ""),
             max_attachment_bytes=int(env.get("MAX_ATTACHMENT_BYTES", "5000000")),
-            allowed_mime_types=set(
-                (env.get("ALLOWED_MIME_TYPES") or "").split(",")
-            )
-            if env.get("ALLOWED_MIME_TYPES")
-            else None,
+            allowed_mime_types=(
+                set(env.get("ALLOWED_MIME_TYPES").split(","))
+                if env.get("ALLOWED_MIME_TYPES") and env.get("ALLOWED_MIME_TYPES").strip()
+                else None
+            ),
             tempdir_base=env.get("TEMPDIR_BASE") or None,
             redact_secrets=(env.get("REDACT_SECRETS", "true").lower() == "true"),
         )
