@@ -1,4 +1,3 @@
-```python name=bot/utils.py
 #!/usr/bin/env python3
 """
 Utility functions for Project Automation Discord Bot
@@ -36,6 +35,7 @@ try:
     from PIL import Image  # noqa: F401 (imported for completeness; used by pytesseract)
     import cv2
     import numpy as np  # noqa: F401 (used in advanced pipelines if added)
+
     OCR_AVAILABLE = True
 except ImportError:
     OCR_AVAILABLE = False
@@ -43,6 +43,7 @@ except ImportError:
 # AI / OpenAI
 try:
     import openai
+
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
@@ -50,6 +51,7 @@ except ImportError:
 # Audio processing
 try:
     from pydub import AudioSegment
+
     AUDIO_AVAILABLE = True
 except ImportError:
     AUDIO_AVAILABLE = False
@@ -57,6 +59,7 @@ except ImportError:
 # GitHub integration
 try:
     from github import Github
+
     GITHUB_AVAILABLE = True
 except ImportError:
     GITHUB_AVAILABLE = False
@@ -65,6 +68,7 @@ except ImportError:
 try:
     import aiohttp
     from bs4 import BeautifulSoup
+
     WEB_AVAILABLE = True
 except ImportError:
     WEB_AVAILABLE = False
@@ -72,8 +76,10 @@ except ImportError:
 # Markdown / PDF
 import markdown
 from jinja2 import Template
+
 try:
     import pdfkit
+
     PDF_AVAILABLE = True
 except ImportError:
     PDF_AVAILABLE = False
@@ -99,7 +105,9 @@ class MessageChunker:
     def __init__(self, max_length: int = MAX_MESSAGE_LENGTH):
         self.max_length = max_length
 
-    def chunk_text(self, text: str, preserve_words: bool = True, preserve_lines: bool = True) -> List[str]:
+    def chunk_text(
+        self, text: str, preserve_words: bool = True, preserve_lines: bool = True
+    ) -> List[str]:
         """
         Split text into chunks that fit Discord's limits.
 
@@ -122,7 +130,9 @@ class MessageChunker:
                 chunks.append(remaining)
                 break
 
-            split_point = self._find_split_point(remaining, preserve_words, preserve_lines)
+            split_point = self._find_split_point(
+                remaining, preserve_words, preserve_lines
+            )
 
             chunk = remaining[:split_point].rstrip()
             if chunk:
@@ -132,7 +142,9 @@ class MessageChunker:
 
         return chunks
 
-    def _find_split_point(self, text: str, preserve_words: bool, preserve_lines: bool) -> int:
+    def _find_split_point(
+        self, text: str, preserve_words: bool, preserve_lines: bool
+    ) -> int:
         """Find the best point to split text."""
         max_pos = min(len(text), self.max_length)
 
@@ -141,13 +153,13 @@ class MessageChunker:
 
         # Prefer newline splits
         if preserve_lines:
-            newline_pos = text.rfind('\n', 0, max_pos)
+            newline_pos = text.rfind("\n", 0, max_pos)
             if newline_pos > max_pos * 0.5:
                 return newline_pos + 1
 
         # Then word boundary splits
         if preserve_words:
-            space_pos = text.rfind(' ', 0, max_pos)
+            space_pos = text.rfind(" ", 0, max_pos)
             if space_pos > max_pos * 0.5:
                 return space_pos + 1
 
@@ -186,7 +198,9 @@ class MessageChunker:
                     current_chunk = ""
 
                 if len(section) > self.max_length:
-                    section_chunks = self.chunk_text(section, preserve_words=True, preserve_lines=True)
+                    section_chunks = self.chunk_text(
+                        section, preserve_words=True, preserve_lines=True
+                    )
                     chunks.extend(section_chunks)
                 else:
                     current_chunk = section
@@ -201,24 +215,24 @@ class MessageChunker:
     def _split_by_markdown_sections(self, text: str) -> List[str]:
         """Split text by markdown sections (headers, code blocks, etc.)."""
         patterns = [
-            r'^```[\s\S]*?^```',  # Code blocks
-            r'^#{1,6} .*$',       # Headers
-            r'^- .*$',            # List items
-            r'^\d+\. .*$',        # Numbered list items
-            r'^> .*$',            # Quotes
+            r"^```[\s\S]*?^```",  # Code blocks
+            r"^#{1,6} .*$",  # Headers
+            r"^- .*$",  # List items
+            r"^\d+\. .*$",  # Numbered list items
+            r"^> .*$",  # Quotes
         ]
 
-        pattern = '|'.join(f'({p})' for p in patterns)
+        pattern = "|".join(f"({p})" for p in patterns)
         matches = list(re.finditer(pattern, text, re.MULTILINE))
 
         if not matches:
-            return text.split('\n\n')
+            return text.split("\n\n")
 
         sections: List[str] = []
         last_end = 0
 
         for match in matches:
-            before = text[last_end:match.start()]
+            before = text[last_end : match.start()]
             if before.strip():
                 sections.append(before)
 
@@ -233,7 +247,9 @@ class MessageChunker:
         return sections
 
     @staticmethod
-    def add_chunk_indicators(chunks: List[str], total_pages: Optional[int] = None) -> List[str]:
+    def add_chunk_indicators(
+        chunks: List[str], total_pages: Optional[int] = None
+    ) -> List[str]:
         """
         Add page indicators to chunks.
 
@@ -256,20 +272,24 @@ class MessageChunker:
                 result.append(indicator + chunk)
             else:
                 indicator_tail = f"\n\n📄 Page {i}/{total}"
-                max_content_length = MessageChunker.MAX_MESSAGE_LENGTH - len(indicator_tail)
+                max_content_length = MessageChunker.MAX_MESSAGE_LENGTH - len(
+                    indicator_tail
+                )
                 truncated_chunk = chunk[:max_content_length].rstrip()
                 result.append(truncated_chunk + indicator_tail)
 
         return result
 
     @staticmethod
-    def truncate_with_ellipsis(text: str, max_length: int, ellipsis: str = "...") -> str:
+    def truncate_with_ellipsis(
+        text: str, max_length: int, ellipsis: str = "..."
+    ) -> str:
         """
         Truncate text to max_length, adding ellipsis if truncated.
         """
         if len(text) <= max_length:
             return text
-        return text[:max_length - len(ellipsis)].rstrip() + ellipsis
+        return text[: max_length - len(ellipsis)].rstrip() + ellipsis
 
 
 # -----------------------------------------------------------------------------
@@ -303,31 +323,40 @@ class ConversationMemory:
             """)
             await db.commit()
 
-    async def store_conversation(self, user_id: int, message: str, response: str, context: Optional[Dict] = None):
+    async def store_conversation(
+        self, user_id: int, message: str, response: str, context: Optional[Dict] = None
+    ):
         """Store a conversation in the database."""
         context_hash = None
         if context:
             try:
-                context_hash = hashlib.md5(json.dumps(context, sort_keys=True).encode()).hexdigest()
+                context_hash = hashlib.md5(
+                    json.dumps(context, sort_keys=True).encode()
+                ).hexdigest()
             except Exception:
                 context_hash = None
 
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
                 "INSERT INTO conversations (user_id, message, response, context_hash) VALUES (?, ?, ?, ?)",
-                (user_id, message, response, context_hash)
+                (user_id, message, response, context_hash),
             )
             await db.commit()
 
-    async def get_conversation_history(self, user_id: int, limit: int = 10) -> List[Dict[str, Any]]:
+    async def get_conversation_history(
+        self, user_id: int, limit: int = 10
+    ) -> List[Dict[str, Any]]:
         """Get conversation history for a user."""
         async with aiosqlite.connect(self.db_path) as db:
             cursor = await db.execute(
                 "SELECT message, response, timestamp FROM conversations WHERE user_id = ? ORDER BY timestamp DESC LIMIT ?",
-                (user_id, limit)
+                (user_id, limit),
             )
             rows = await cursor.fetchall()
-            return [{"message": row[0], "response": row[1], "timestamp": row[2]} for row in rows]
+            return [
+                {"message": row[0], "response": row[1], "timestamp": row[2]}
+                for row in rows
+            ]
 
 
 # -----------------------------------------------------------------------------
@@ -354,20 +383,35 @@ class AIHelper:
             response = await openai.ChatCompletion.acreate(
                 model=getattr(config, "ai_model", "gpt-3.5-turbo"),
                 messages=[
-                    {"role": "system", "content": "Generate a comma-separated list of 3-5 relevant tags for technical content. Return only the list."},
+                    {
+                        "role": "system",
+                        "content": "Generate a comma-separated list of 3-5 relevant tags for technical content. Return only the list.",
+                    },
                     {"role": "user", "content": f"Content:\n\n{content[:1500]}"},
                 ],
                 max_tokens=60,
-                temperature=0.3
+                temperature=0.3,
             )
             tags_text = response.choices[0].message.content.strip()
-            return [tag.strip().lstrip('#') for tag in tags_text.split(',') if tag.strip()]
+            return [
+                tag.strip().lstrip("#") for tag in tags_text.split(",") if tag.strip()
+            ]
         except Exception:
             return self._fallback_tags(content)
 
     def _fallback_tags(self, content: str) -> List[str]:
         """Fallback tag generation without AI."""
-        keywords = ['python', 'javascript', 'api', 'database', 'web', 'mobile', 'ai', 'ml', 'data']
+        keywords = [
+            "python",
+            "javascript",
+            "api",
+            "database",
+            "web",
+            "mobile",
+            "ai",
+            "ml",
+            "data",
+        ]
         found_tags: List[str] = []
         content_lower = content.lower()
 
@@ -375,12 +419,12 @@ class AIHelper:
             if keyword in content_lower:
                 found_tags.append(keyword)
 
-        if 'class ' in content or 'def ' in content:
-            found_tags.append('programming')
-        if 'http' in content_lower or 'api' in content_lower:
-            found_tags.append('api')
+        if "class " in content or "def " in content:
+            found_tags.append("programming")
+        if "http" in content_lower or "api" in content_lower:
+            found_tags.append("api")
         if not found_tags:
-            found_tags = ['general', 'documentation']
+            found_tags = ["general", "documentation"]
 
         # Deduplicate while preserving order
         seen = set()
@@ -393,13 +437,14 @@ class AIHelper:
             return "Audio transcription not available (OpenAI API key required)"
 
         try:
-            with open(audio_path, 'rb') as audio_file:
+            with open(audio_path, "rb") as audio_file:
                 transcript = await openai.Audio.atranscribe(
-                    model=getattr(config, "whisper_model", "whisper-1"),
-                    file=audio_file
+                    model=getattr(config, "whisper_model", "whisper-1"), file=audio_file
                 )
                 # Depending on SDK version, transcript may be object or dict
-                return getattr(transcript, "text", None) or transcript.get("text", "Transcription completed")
+                return getattr(transcript, "text", None) or transcript.get(
+                    "text", "Transcription completed"
+                )
         except Exception as e:
             return f"Transcription failed: {str(e)}"
 
@@ -412,11 +457,14 @@ class AIHelper:
             response = await openai.ChatCompletion.acreate(
                 model=getattr(config, "ai_model", "gpt-3.5-turbo"),
                 messages=[
-                    {"role": "system", "content": f"Generate comprehensive unit tests for {language} code. Use best practices and assertions."},
+                    {
+                        "role": "system",
+                        "content": f"Generate comprehensive unit tests for {language} code. Use best practices and assertions.",
+                    },
                     {"role": "user", "content": f"Code:\n\n{code}"},
                 ],
                 max_tokens=700,
-                temperature=0.2
+                temperature=0.2,
             )
             return response.choices[0].message.content
         except Exception as e:
@@ -440,7 +488,9 @@ class FileProcessor:
             if image is None:
                 return "OCR failed: could not read image"
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            processed = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+            processed = cv2.threshold(
+                gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+            )[1]
             text = pytesseract.image_to_string(processed)
             return text.strip()
         except Exception as e:
@@ -462,21 +512,26 @@ class FileProcessor:
     @staticmethod
     async def detect_language(code: str) -> str:
         """Detect programming language from code snippet."""
-        if any(p in code for p in ['def ', 'import ', 'from ', 'print(', '__init__']):
-            return 'python'
-        if any(p in code for p in ['function ', 'var ', 'let ', 'const ', 'console.log']):
-            return 'javascript'
-        if any(p in code for p in ['public class ', 'public static void main', 'import java']):
-            return 'java'
-        if any(p in code for p in ['#include ', 'int main(', 'std::', 'cout']):
-            return 'cpp'
-        if any(p in code for p in ['package ', 'func main(', 'import (', 'fmt.']):
-            return 'go'
-        if any(p in code for p in ['fn main(', 'use std::', 'let mut']):
-            return 'rust'
-        if code.startswith('#!/bin/bash') or code.startswith('#!/bin/sh'):
-            return 'bash'
-        return 'text'
+        if any(p in code for p in ["def ", "import ", "from ", "print(", "__init__"]):
+            return "python"
+        if any(
+            p in code for p in ["function ", "var ", "let ", "const ", "console.log"]
+        ):
+            return "javascript"
+        if any(
+            p in code
+            for p in ["public class ", "public static void main", "import java"]
+        ):
+            return "java"
+        if any(p in code for p in ["#include ", "int main(", "std::", "cout"]):
+            return "cpp"
+        if any(p in code for p in ["package ", "func main(", "import (", "fmt."]):
+            return "go"
+        if any(p in code for p in ["fn main(", "use std::", "let mut"]):
+            return "rust"
+        if code.startswith("#!/bin/bash") or code.startswith("#!/bin/sh"):
+            return "bash"
+        return "text"
 
     @staticmethod
     async def markdown_to_html(markdown_content: str, title: str = "Document") -> str:
@@ -484,7 +539,7 @@ class FileProcessor:
         try:
             html_content = markdown.markdown(
                 markdown_content,
-                extensions=['codehilite', 'toc', 'tables', 'fenced_code']
+                extensions=["codehilite", "toc", "tables", "fenced_code"],
             )
         except Exception:
             html_content = markdown.markdown(markdown_content)
@@ -517,7 +572,7 @@ class FileProcessor:
         if not PDF_AVAILABLE:
             # Create a simple fallback text file
             try:
-                with open(output_path.with_suffix('.txt'), 'w', encoding='utf-8') as f:
+                with open(output_path.with_suffix(".txt"), "w", encoding="utf-8") as f:
                     f.write("PDF generation not available - pdfkit not installed\n\n")
                     f.write(html_content)
             except Exception:
@@ -526,13 +581,13 @@ class FileProcessor:
 
         try:
             options = {
-                'page-size': 'A4',
-                'margin-top': '0.75in',
-                'margin-right': '0.75in',
-                'margin-bottom': '0.75in',
-                'margin-left': '0.75in',
-                'encoding': "UTF-8",
-                'no-outline': None
+                "page-size": "A4",
+                "margin-top": "0.75in",
+                "margin-right": "0.75in",
+                "margin-bottom": "0.75in",
+                "margin-left": "0.75in",
+                "encoding": "UTF-8",
+                "no-outline": None,
             }
             pdfkit.from_string(html_content, str(output_path), options=options)
             return True
@@ -550,15 +605,14 @@ class CodeAnalyzer:
     async def lint_python_code(code: str) -> List[str]:
         """Lint Python code using flake8."""
         try:
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
                 f.write(code)
                 temp_path = f.name
 
             import subprocess
+
             result = subprocess.run(
-                ['flake8', '--select=E,W,F', temp_path],
-                capture_output=True,
-                text=True
+                ["flake8", "--select=E,W,F", temp_path], capture_output=True, text=True
             )
 
             try:
@@ -572,7 +626,7 @@ class CodeAnalyzer:
                 issues: List[str] = []
                 for line in result.stdout.splitlines():
                     if line.strip():
-                        parts = line.split(':', 3)
+                        parts = line.split(":", 3)
                         if len(parts) >= 4:
                             line_num = parts[1]
                             col_num = parts[2]
@@ -600,19 +654,30 @@ class GitHubHelper:
             self.github = None
             self.available = False
 
-    async def create_pr(self, repo_name: str, title: str, body: str, head_branch: str, base_branch: str = "main") -> str:
+    async def create_pr(
+        self,
+        repo_name: str,
+        title: str,
+        body: str,
+        head_branch: str,
+        base_branch: str = "main",
+    ) -> str:
         """Create a GitHub pull request."""
         if not self.available or not self.github:
             return "GitHub integration not available (token required)"
 
         try:
             repo = self.github.get_repo(repo_name)
-            pr = repo.create_pull(title=title, body=body, head=head_branch, base=base_branch)
+            pr = repo.create_pull(
+                title=title, body=body, head=head_branch, base=base_branch
+            )
             return f"✅ Pull request created: {pr.html_url}"
         except Exception as e:
             return f"❌ Failed to create PR: {str(e)}"
 
-    async def get_issues(self, repo_name: str, state: str = "open", limit: int = 5) -> List[Dict[str, Any]]:
+    async def get_issues(
+        self, repo_name: str, state: str = "open", limit: int = 5
+    ) -> List[Dict[str, Any]]:
         """Get GitHub issues for a repository."""
         if not self.available or not self.github:
             return []
@@ -623,13 +688,15 @@ class GitHubHelper:
             for i, issue in enumerate(issues):
                 if i >= limit:
                     break
-                result.append({
-                    "number": issue.number,
-                    "title": issue.title,
-                    "url": issue.html_url,
-                    "state": issue.state,
-                    "created_at": issue.created_at.isoformat()
-                })
+                result.append(
+                    {
+                        "number": issue.number,
+                        "title": issue.title,
+                        "url": issue.html_url,
+                        "state": issue.state,
+                        "created_at": issue.created_at.isoformat(),
+                    }
+                )
             return result
         except Exception:
             return []
@@ -645,40 +712,57 @@ class WebSearchHelper:
     async def google_search(query: str, limit: int = 3) -> List[Dict[str, Any]]:
         """Perform a basic web search via DuckDuckGo's HTML results."""
         if not WEB_AVAILABLE:
-            return [{"title": "Search unavailable - aiohttp and beautifulsoup4 required", "url": "", "snippet": ""}]
+            return [
+                {
+                    "title": "Search unavailable - aiohttp and beautifulsoup4 required",
+                    "url": "",
+                    "snippet": "",
+                }
+            ]
 
         try:
             async with aiohttp.ClientSession() as session:
                 url = f"https://html.duckduckgo.com/html/?q={query}"
-                headers = {'User-Agent': 'Mozilla/5.0 (compatible; Discord Bot)'}
+                headers = {"User-Agent": "Mozilla/5.0 (compatible; Discord Bot)"}
                 async with session.get(url, headers=headers, timeout=20) as response:
                     if response.status != 200:
-                        return [{"title": "Search unavailable", "url": "", "snippet": "Request failed"}]
+                        return [
+                            {
+                                "title": "Search unavailable",
+                                "url": "",
+                                "snippet": "Request failed",
+                            }
+                        ]
                     html = await response.text()
-                    soup = BeautifulSoup(html, 'html.parser')
+                    soup = BeautifulSoup(html, "html.parser")
 
                     results: List[Dict[str, Any]] = []
-                    for link in soup.find_all('a', {'class': 'result__a'})[:limit]:
+                    for link in soup.find_all("a", {"class": "result__a"})[:limit]:
                         title = link.get_text().strip()
-                        href = link.get('href')
+                        href = link.get("href")
                         if title and href:
-                            results.append({
-                                "title": title,
-                                "url": href,
-                                "snippet": ""
-                            })
-                    return results or [{"title": "No results", "url": "", "snippet": ""}]
+                            results.append({"title": title, "url": href, "snippet": ""})
+                    return results or [
+                        {"title": "No results", "url": "", "snippet": ""}
+                    ]
         except Exception:
-            return [{"title": "Search unavailable", "url": "", "snippet": "Web search is currently unavailable"}]
+            return [
+                {
+                    "title": "Search unavailable",
+                    "url": "",
+                    "snippet": "Web search is currently unavailable",
+                }
+            ]
 
 
 # -----------------------------------------------------------------------------
 # Global instances
 # -----------------------------------------------------------------------------
-memory = ConversationMemory(getattr(config, "db_path", Path("bot/conversation_memory.db")))
+memory = ConversationMemory(
+    getattr(config, "db_path", Path("bot/conversation_memory.db"))
+)
 ai_helper = AIHelper()
 file_processor = FileProcessor()
 code_analyzer = CodeAnalyzer()
 github_helper = GitHubHelper()
 web_search = WebSearchHelper()
-```

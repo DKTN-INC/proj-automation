@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import List, Optional, Set
+from typing import Optional, Set
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
@@ -61,7 +61,8 @@ def load_settings() -> Settings:
             max_attachment_bytes=int(env.get("MAX_ATTACHMENT_BYTES", "5000000")),
             allowed_mime_types=(
                 set(env.get("ALLOWED_MIME_TYPES").split(","))
-                if env.get("ALLOWED_MIME_TYPES") and env.get("ALLOWED_MIME_TYPES").strip()
+                if env.get("ALLOWED_MIME_TYPES")
+                and env.get("ALLOWED_MIME_TYPES").strip()
                 else None
             ),
             tempdir_base=env.get("TEMPDIR_BASE") or None,

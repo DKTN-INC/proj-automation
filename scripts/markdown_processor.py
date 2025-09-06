@@ -6,30 +6,28 @@ This script provides HTML templating, table of contents generation,
 and AI summarization features for markdown files.
 """
 
-import os
-import sys
-import re
-import json
 import argparse
 import asyncio
-from pathlib import Path
-from typing import List, Dict, Optional, Tuple
-import markdown
-from markdown.extensions import toc, codehilite, tables, fenced_code
-import weasyprint
-from jinja2 import Template, Environment, FileSystemLoader
-import hashlib
 import datetime
+import os
+import re
+import sys
+from typing import Dict, Optional
+
+import markdown
+import weasyprint
+from jinja2 import Environment, FileSystemLoader
+
 
 # Import currency formatting and async Discord webhook
 try:
-    from currency_formatter import CurrencyFormatter, format_gbp
     from async_discord_webhook import send_pdf_if_webhook_configured
+    from currency_formatter import CurrencyFormatter, format_gbp
 except ImportError:
     # Fallback for package-relative imports
     try:
-        from .currency_formatter import CurrencyFormatter, format_gbp
         from .async_discord_webhook import send_pdf_if_webhook_configured
+        from .currency_formatter import CurrencyFormatter, format_gbp
     except ImportError:
         # Graceful fallback if modules not available
         CurrencyFormatter = None
@@ -39,12 +37,14 @@ except ImportError:
 
 class MarkdownProcessor:
     """Main class for processing markdown files with enhanced features."""
-    
+
     def __init__(self, template_dir: Optional[str] = None):
         """Initialize the processor with optional template directory."""
-        self.template_dir = template_dir or os.path.join(os.path.dirname(__file__), 'templates')
+        self.template_dir = template_dir or os.path.join(
+            os.path.dirname(__file__), "templates"
+        )
         self.setup_jinja_env()
-        
+
     def setup_jinja_env(self):
         """Setup Jinja2 environment for HTML templating."""
         try:
@@ -139,31 +139,31 @@ class MarkdownProcessor:
     {% endif %}
 </body>
 </html>"""
-        
-        template_path = os.path.join(self.template_dir, 'default.html')
-        with open(template_path, 'w', encoding='utf-8') as f:
+
+        template_path = os.path.join(self.template_dir, "default.html")
+        with open(template_path, "w", encoding="utf-8") as f:
             f.write(default_template)
 
     def extract_title(self, markdown_content: str) -> str:
         """Extract title from markdown content."""
-        lines = markdown_content.split('\n')
+        lines = markdown_content.split("\n")
         for line in lines:
-            if line.strip().startswith('# '):
+            if line.strip().startswith("# "):
                 return line.strip()[2:].strip()
         return "Untitled Document"
 
     def generate_summary(self, content: str, max_length: int = 200) -> str:
         """Generate a simple extractive summary of the content."""
         # Remove markdown syntax for better summary
-        clean_content = re.sub(r'[#*`\[\]()]', '', content)
-        clean_content = re.sub(r'\n+', ' ', clean_content)
-        
-        sentences = re.split(r'[.!?]+', clean_content)
+        clean_content = re.sub(r"[#*`\[\]()]", "", content)
+        clean_content = re.sub(r"\n+", " ", clean_content)
+
+        sentences = re.split(r"[.!?]+", clean_content)
         sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
-        
+
         if not sentences:
             return "No content available for summary."
-        
+
         # Take first few sentences up to max_length
         summary = ""
         for sentence in sentences[:3]:  # Limit to first 3 sentences
@@ -171,83 +171,78 @@ class MarkdownProcessor:
                 summary += sentence + ". "
             else:
                 break
-        
+
         return summary.strip() or sentences[0][:max_length] + "..."
 
     def count_words(self, text: str) -> int:
         """Count words in text."""
         # Remove markdown syntax and count words
-        clean_text = re.sub(r'[#*`\[\]()]', '', text)
-        words = re.findall(r'\b\w+\b', clean_text)
+        clean_text = re.sub(r"[#*`\[\]()]", "", text)
+        words = re.findall(r"\b\w+\b", clean_text)
         return len(words)
 
-    def process_markdown_to_html(self, markdown_content: str, file_path: Optional[str] = None) -> Dict:
+    def process_markdown_to_html(
+        self, markdown_content: str, file_path: Optional[str] = None
+    ) -> Dict:
         """Process markdown content to HTML with TOC and summary."""
         try:
             # Setup markdown processor with extensions
-            md = markdown.Markdown(extensions=[
-                'toc',
-                'codehilite',
-                'tables',
-                'fenced_code',
-                'nl2br'
-            ])
-            
+            md = markdown.Markdown(
+                extensions=["toc", "codehilite", "tables", "fenced_code", "nl2br"]
+            )
+
             # Convert markdown to HTML
             html_content = md.convert(markdown_content)
-            
+
             # Extract title
             title = self.extract_title(markdown_content)
-            
+
             # Generate summary
             summary = self.generate_summary(markdown_content)
-            
+
             # Get table of contents
-            toc_html = getattr(md, 'toc', '')
-            
+            toc_html = getattr(md, "toc", "")
+
             # Generate metadata
             metadata = {
-                'generated_at': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'file_path': file_path,
-                'word_count': self.count_words(markdown_content)
+                "generated_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "file_path": file_path,
+                "word_count": self.count_words(markdown_content),
             }
-            
+
             return {
-                'title': title,
-                'content': html_content,
-                'toc': toc_html,
-                'summary': summary,
-                'metadata': metadata,
-                'success': True
+                "title": title,
+                "content": html_content,
+                "toc": toc_html,
+                "summary": summary,
+                "metadata": metadata,
+                "success": True,
             }
-            
+
         except Exception as e:
-            return {
-                'error': f"Error processing markdown: {str(e)}",
-                'success': False
-            }
+            return {"error": f"Error processing markdown: {str(e)}", "success": False}
 
     def render_template(self, template_name: str, **kwargs) -> str:
         """Render HTML template with given context."""
         try:
             if not self.jinja_env:
                 raise Exception("Jinja environment not initialized")
-                
+
             template = self.jinja_env.get_template(template_name)
             return template.render(**kwargs)
         except Exception as e:
             print(f"Error rendering template: {e}", file=sys.stderr)
             # Fallback to simple HTML
             return f"""<!DOCTYPE html>
-<html><head><title>{kwargs.get('title', 'Document')}</title></head>
-<body>{kwargs.get('content', '')}</body></html>"""
+<html><head><title>{kwargs.get("title", "Document")}</title></head>
+<body>{kwargs.get("content", "")}</body></html>"""
 
     def convert_to_pdf(self, html_content: str, output_path: str) -> bool:
         """Convert HTML content to PDF."""
         try:
             # Create output directory if it doesn't exist
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            
+
             # Convert HTML to PDF
             html_doc = weasyprint.HTML(string=html_content)
             html_doc.write_pdf(output_path)
@@ -256,127 +251,160 @@ class MarkdownProcessor:
             print(f"Error converting to PDF: {e}", file=sys.stderr)
             return False
 
-    def process_file(self, input_path: str, output_dir: str, template_name: str = 'default.html') -> Dict:
+    def process_file(
+        self, input_path: str, output_dir: str, template_name: str = "default.html"
+    ) -> Dict:
         """Process a single markdown file."""
         try:
             # Validate input file
             if not os.path.exists(input_path):
-                return {'error': f"Input file not found: {input_path}", 'success': False}
-            
-            if not input_path.lower().endswith('.md'):
-                return {'error': f"Input file must be a markdown file: {input_path}", 'success': False}
-            
+                return {
+                    "error": f"Input file not found: {input_path}",
+                    "success": False,
+                }
+
+            if not input_path.lower().endswith(".md"):
+                return {
+                    "error": f"Input file must be a markdown file: {input_path}",
+                    "success": False,
+                }
+
             # Read markdown content
-            with open(input_path, 'r', encoding='utf-8') as f:
+            with open(input_path, encoding="utf-8") as f:
                 markdown_content = f.read()
-            
+
             if not markdown_content.strip():
-                return {'error': f"Input file is empty: {input_path}", 'success': False}
-            
+                return {"error": f"Input file is empty: {input_path}", "success": False}
+
             # Process markdown
             result = self.process_markdown_to_html(markdown_content, input_path)
-            if not result['success']:
+            if not result["success"]:
                 return result
-            
+
             # Create output directory
             os.makedirs(output_dir, exist_ok=True)
-            
+
             # Generate output filename
             base_name = os.path.splitext(os.path.basename(input_path))[0]
             html_output = os.path.join(output_dir, f"{base_name}.html")
             pdf_output = os.path.join(output_dir, f"{base_name}.pdf")
-            
+
             # Render HTML template
             html_content = self.render_template(template_name, **result)
-            
+
             # Write HTML file
-            with open(html_output, 'w', encoding='utf-8') as f:
+            with open(html_output, "w", encoding="utf-8") as f:
                 f.write(html_content)
-            
+
             # Convert to PDF
             pdf_success = self.convert_to_pdf(html_content, pdf_output)
-            
+
             return {
-                'success': True,
-                'html_output': html_output,
-                'pdf_output': pdf_output if pdf_success else None,
-                'title': result['title'],
-                'summary': result['summary'],
-                'word_count': result['metadata']['word_count']
+                "success": True,
+                "html_output": html_output,
+                "pdf_output": pdf_output if pdf_success else None,
+                "title": result["title"],
+                "summary": result["summary"],
+                "word_count": result["metadata"]["word_count"],
             }
-            
+
         except Exception as e:
-            return {'error': f"Error processing file {input_path}: {str(e)}", 'success': False}
-    
-    async def process_file_with_discord(self, input_path: str, output_dir: str, 
-                                       template_name: str = 'default.html', 
-                                       send_to_discord: bool = True) -> Dict:
+            return {
+                "error": f"Error processing file {input_path}: {str(e)}",
+                "success": False,
+            }
+
+    async def process_file_with_discord(
+        self,
+        input_path: str,
+        output_dir: str,
+        template_name: str = "default.html",
+        send_to_discord: bool = True,
+    ) -> Dict:
         """
         Process a single markdown file and optionally send PDF to Discord.
-        
+
         Args:
             input_path: Path to markdown file
             output_dir: Output directory
             template_name: Template to use
             send_to_discord: Whether to send PDF to Discord if webhook is configured
-            
+
         Returns:
             Processing result with Discord status
         """
         # Process file normally first
         result = self.process_file(input_path, output_dir, template_name)
-        
+
         # If processing was successful and PDF was generated, try to send to Discord
-        if result['success'] and result.get('pdf_output') and send_to_discord:
+        if result["success"] and result.get("pdf_output") and send_to_discord:
             if send_pdf_if_webhook_configured:
                 try:
                     # Create a nice message for Discord
-                    title = result.get('title', 'Untitled')
-                    summary = result.get('summary', '')
-                    word_count = result.get('word_count', 0)
-                    
+                    title = result.get("title", "Untitled")
+                    summary = result.get("summary", "")
+                    word_count = result.get("word_count", 0)
+
                     message = f"📄 **{title}**\n\n"
                     if summary:
                         message += f"📝 {summary}\n\n"
                     message += f"📊 Word count: {word_count}"
-                    
+
                     # Send to Discord
                     discord_success = await send_pdf_if_webhook_configured(
-                        result['pdf_output'], 
-                        message
+                        result["pdf_output"], message
                     )
-                    result['discord_sent'] = discord_success
+                    result["discord_sent"] = discord_success
                     if discord_success:
                         print(f"✅ PDF sent to Discord: {result['pdf_output']}")
                     else:
-                        print(f"⚠️  Failed to send PDF to Discord: {result['pdf_output']}")
+                        print(
+                            f"⚠️  Failed to send PDF to Discord: {result['pdf_output']}"
+                        )
                 except Exception as e:
                     print(f"⚠️  Error sending to Discord: {e}")
-                    result['discord_sent'] = False
-                    result['discord_error'] = str(e)
+                    result["discord_sent"] = False
+                    result["discord_error"] = str(e)
             else:
-                result['discord_sent'] = False
-                result['discord_error'] = "Discord webhook module not available"
+                result["discord_sent"] = False
+                result["discord_error"] = "Discord webhook module not available"
         else:
-            result['discord_sent'] = False
-        
+            result["discord_sent"] = False
+
         return result
 
 
 def main():
     """Main function for command-line usage."""
-    parser = argparse.ArgumentParser(description='Process markdown files with HTML templating and AI summarization')
-    parser.add_argument('input', help='Input markdown file or directory')
-    parser.add_argument('-o', '--output', default='output', help='Output directory (default: output)')
-    parser.add_argument('-t', '--template', default='default.html', help='HTML template name (default: default.html)')
-    parser.add_argument('--template-dir', help='Custom template directory')
-    parser.add_argument('--pdf-only', action='store_true', help='Generate only PDF output')
-    parser.add_argument('--html-only', action='store_true', help='Generate only HTML output')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
-    parser.add_argument('--discord', action='store_true', help='Send PDFs to Discord if webhook is configured')
-    
+    parser = argparse.ArgumentParser(
+        description="Process markdown files with HTML templating and AI summarization"
+    )
+    parser.add_argument("input", help="Input markdown file or directory")
+    parser.add_argument(
+        "-o", "--output", default="output", help="Output directory (default: output)"
+    )
+    parser.add_argument(
+        "-t",
+        "--template",
+        default="default.html",
+        help="HTML template name (default: default.html)",
+    )
+    parser.add_argument("--template-dir", help="Custom template directory")
+    parser.add_argument(
+        "--pdf-only", action="store_true", help="Generate only PDF output"
+    )
+    parser.add_argument(
+        "--html-only", action="store_true", help="Generate only HTML output"
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+    parser.add_argument(
+        "--discord",
+        action="store_true",
+        help="Send PDFs to Discord if webhook is configured",
+    )
+
     args = parser.parse_args()
-    
+
     # If Discord integration is requested, use async main
     if args.discord:
         asyncio.run(async_main(args))
@@ -388,48 +416,50 @@ def sync_main(args):
     """Synchronous main function (original behavior)."""
     # Initialize processor
     processor = MarkdownProcessor(template_dir=args.template_dir)
-    
+
     # Process input
     if os.path.isfile(args.input):
         # Single file
         result = processor.process_file(args.input, args.output, args.template)
-        if result['success']:
+        if result["success"]:
             print(f"✅ Processed: {args.input}")
             print(f"   Title: {result['title']}")
             print(f"   Summary: {result['summary']}")
             print(f"   Word count: {result['word_count']}")
-            if result.get('html_output'):
+            if result.get("html_output"):
                 print(f"   HTML: {result['html_output']}")
-            if result.get('pdf_output'):
+            if result.get("pdf_output"):
                 print(f"   PDF: {result['pdf_output']}")
         else:
             print(f"❌ Error: {result['error']}", file=sys.stderr)
             sys.exit(1)
-    
+
     elif os.path.isdir(args.input):
         # Directory
         markdown_files = []
         for root, dirs, files in os.walk(args.input):
             for file in files:
-                if file.lower().endswith('.md'):
+                if file.lower().endswith(".md"):
                     markdown_files.append(os.path.join(root, file))
-        
+
         if not markdown_files:
             print(f"No markdown files found in {args.input}", file=sys.stderr)
             sys.exit(1)
-        
+
         successful = 0
         for md_file in markdown_files:
             result = processor.process_file(md_file, args.output, args.template)
-            if result['success']:
+            if result["success"]:
                 successful += 1
                 if args.verbose:
                     print(f"✅ Processed: {md_file}")
             else:
-                print(f"❌ Error processing {md_file}: {result['error']}", file=sys.stderr)
-        
+                print(
+                    f"❌ Error processing {md_file}: {result['error']}", file=sys.stderr
+                )
+
         print(f"Processed {successful}/{len(markdown_files)} files successfully")
-    
+
     else:
         print(f"Input path not found: {args.input}", file=sys.stderr)
         sys.exit(1)
@@ -439,62 +469,68 @@ async def async_main(args):
     """Asynchronous main function with Discord integration."""
     # Initialize processor
     processor = MarkdownProcessor(template_dir=args.template_dir)
-    
+
     # Process input
     if os.path.isfile(args.input):
         # Single file
-        result = await processor.process_file_with_discord(args.input, args.output, args.template)
-        if result['success']:
+        result = await processor.process_file_with_discord(
+            args.input, args.output, args.template
+        )
+        if result["success"]:
             print(f"✅ Processed: {args.input}")
             print(f"   Title: {result['title']}")
             print(f"   Summary: {result['summary']}")
             print(f"   Word count: {result['word_count']}")
-            if result.get('html_output'):
+            if result.get("html_output"):
                 print(f"   HTML: {result['html_output']}")
-            if result.get('pdf_output'):
+            if result.get("pdf_output"):
                 print(f"   PDF: {result['pdf_output']}")
-            if result.get('discord_sent'):
-                print(f"   📤 Sent to Discord: ✅")
-            elif result.get('discord_error'):
+            if result.get("discord_sent"):
+                print("   📤 Sent to Discord: ✅")
+            elif result.get("discord_error"):
                 print(f"   📤 Discord error: {result['discord_error']}")
         else:
             print(f"❌ Error: {result['error']}", file=sys.stderr)
             sys.exit(1)
-    
+
     elif os.path.isdir(args.input):
         # Directory
         markdown_files = []
         for root, dirs, files in os.walk(args.input):
             for file in files:
-                if file.lower().endswith('.md'):
+                if file.lower().endswith(".md"):
                     markdown_files.append(os.path.join(root, file))
-        
+
         if not markdown_files:
             print(f"No markdown files found in {args.input}", file=sys.stderr)
             sys.exit(1)
-        
+
         successful = 0
         discord_sent = 0
         for md_file in markdown_files:
-            result = await processor.process_file_with_discord(md_file, args.output, args.template)
-            if result['success']:
+            result = await processor.process_file_with_discord(
+                md_file, args.output, args.template
+            )
+            if result["success"]:
                 successful += 1
-                if result.get('discord_sent'):
+                if result.get("discord_sent"):
                     discord_sent += 1
                 if args.verbose:
                     print(f"✅ Processed: {md_file}")
-                    if result.get('discord_sent'):
-                        print(f"   📤 Sent to Discord: ✅")
+                    if result.get("discord_sent"):
+                        print("   📤 Sent to Discord: ✅")
             else:
-                print(f"❌ Error processing {md_file}: {result['error']}", file=sys.stderr)
-        
+                print(
+                    f"❌ Error processing {md_file}: {result['error']}", file=sys.stderr
+                )
+
         print(f"Processed {successful}/{len(markdown_files)} files successfully")
         print(f"Sent {discord_sent} PDFs to Discord")
-    
+
     else:
         print(f"Input path not found: {args.input}", file=sys.stderr)
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
