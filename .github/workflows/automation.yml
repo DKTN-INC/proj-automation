@@ -79,22 +79,24 @@ jobs:
         run: |
           mkdir -p output/pdfs
           
-      - name: Convert Markdown to PDF
+      - name: Convert Markdown to PDF and Send to Discord
         if: steps.changed-files.outputs.has_changes == 'true'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          echo "🔄 Converting markdown files to PDF..."
+          echo "🔄 Converting markdown files to PDF with Discord integration..."
           converted_files=""
           
           while IFS= read -r file; do
             if [ -f "$file" ]; then
-              echo "Converting: $file"
-              python scripts/md_to_pdf.py "$file" -o output/pdfs
+              echo "Processing: $file"
+              python scripts/markdown_processor.py "$file" -o output/pdfs --discord
               pdf_name=$(basename "$file" .md).pdf
               if [ -f "output/pdfs/$pdf_name" ]; then
-                echo "✅ Successfully converted: $pdf_name"
+                echo "✅ Successfully processed: $pdf_name"
                 converted_files="$converted_files output/pdfs/$pdf_name"
               else
-                echo "❌ Failed to convert: $file"
+                echo "❌ Failed to process: $file"
               fi
             fi
           done < changed_files.txt
@@ -106,39 +108,6 @@ jobs:
         run: |
           echo "Generated PDF files:"
           ls -la output/pdfs/ || echo "No PDFs generated"
-          
-      - name: Send PDFs to Discord
-        if: steps.changed-files.outputs.has_changes == 'true' && env.converted_files != ''
-        env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: |
-          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
-            echo "⚠️ DISCORD_WEBHOOK_URL secret not set, skipping Discord notification"
-            exit 0
-          fi
-          
-          if [ -n "$converted_files" ]; then
-            echo "📤 Sending PDFs to Discord..."
-            
-            # Count files
-            file_count=$(echo $converted_files | wc -w)
-            
-            if [ $file_count -eq 1 ]; then
-              message="📄 New idea sheet published from commit ${{ github.sha }}"
-            else
-              message="📚 $file_count new idea sheets published from commit ${{ github.sha }}"
-            fi
-            
-            python scripts/send_pdf_to_discord.py \
-              $converted_files \
-              --webhook "$DISCORD_WEBHOOK_URL" \
-              --message "$message" \
-              --username "Idea Sheet Bot" \
-              --verbose || echo "Failed to send PDFs"
-            echo "✅ PDFs sent to Discord successfully"
-          else
-            echo "ℹ️ No PDFs to send"
-          fi
           
       - name: Upload PDFs as artifacts
         if: steps.changed-files.outputs.has_changes == 'true'

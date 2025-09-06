@@ -11,6 +11,7 @@ import sys
 import re
 import json
 import argparse
+import asyncio
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 import markdown
@@ -19,6 +20,21 @@ import weasyprint
 from jinja2 import Template, Environment, FileSystemLoader
 import hashlib
 import datetime
+
+# Import currency formatting and async Discord webhook
+try:
+    from .currency_formatter import CurrencyFormatter, format_gbp
+    from .async_discord_webhook import send_pdf_if_webhook_configured
+except ImportError:
+    # Fallback for direct execution
+    try:
+        from currency_formatter import CurrencyFormatter, format_gbp
+        from async_discord_webhook import send_pdf_if_webhook_configured
+    except ImportError:
+        # Graceful fallback if modules not available
+        CurrencyFormatter = None
+        format_gbp = None
+        send_pdf_if_webhook_configured = None
 
 
 class MarkdownProcessor:
@@ -291,6 +307,60 @@ class MarkdownProcessor:
             
         except Exception as e:
             return {'error': f"Error processing file {input_path}: {str(e)}", 'success': False}
+    
+    async def process_file_with_discord(self, input_path: str, output_dir: str, 
+                                       template_name: str = 'default.html', 
+                                       send_to_discord: bool = True) -> Dict:
+        """
+        Process a single markdown file and optionally send PDF to Discord.
+        
+        Args:
+            input_path: Path to markdown file
+            output_dir: Output directory
+            template_name: Template to use
+            send_to_discord: Whether to send PDF to Discord if webhook is configured
+            
+        Returns:
+            Processing result with Discord status
+        """
+        # Process file normally first
+        result = self.process_file(input_path, output_dir, template_name)
+        
+        # If processing was successful and PDF was generated, try to send to Discord
+        if result['success'] and result.get('pdf_output') and send_to_discord:
+            if send_pdf_if_webhook_configured:
+                try:
+                    # Create a nice message for Discord
+                    title = result.get('title', 'Untitled')
+                    summary = result.get('summary', '')
+                    word_count = result.get('word_count', 0)
+                    
+                    message = f"📄 **{title}**\n\n"
+                    if summary:
+                        message += f"📝 {summary}\n\n"
+                    message += f"📊 Word count: {word_count}"
+                    
+                    # Send to Discord
+                    discord_success = await send_pdf_if_webhook_configured(
+                        result['pdf_output'], 
+                        message
+                    )
+                    result['discord_sent'] = discord_success
+                    if discord_success:
+                        print(f"✅ PDF sent to Discord: {result['pdf_output']}")
+                    else:
+                        print(f"⚠️  Failed to send PDF to Discord: {result['pdf_output']}")
+                except Exception as e:
+                    print(f"⚠️  Error sending to Discord: {e}")
+                    result['discord_sent'] = False
+                    result['discord_error'] = str(e)
+            else:
+                result['discord_sent'] = False
+                result['discord_error'] = "Discord webhook module not available"
+        else:
+            result['discord_sent'] = False
+        
+        return result
 
 
 def main():
@@ -303,9 +373,19 @@ def main():
     parser.add_argument('--pdf-only', action='store_true', help='Generate only PDF output')
     parser.add_argument('--html-only', action='store_true', help='Generate only HTML output')
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
+    parser.add_argument('--discord', action='store_true', help='Send PDFs to Discord if webhook is configured')
     
     args = parser.parse_args()
     
+    # If Discord integration is requested, use async main
+    if args.discord:
+        asyncio.run(async_main(args))
+    else:
+        sync_main(args)
+
+
+def sync_main(args):
+    """Synchronous main function (original behavior)."""
     # Initialize processor
     processor = MarkdownProcessor(template_dir=args.template_dir)
     
@@ -349,6 +429,67 @@ def main():
                 print(f"❌ Error processing {md_file}: {result['error']}", file=sys.stderr)
         
         print(f"Processed {successful}/{len(markdown_files)} files successfully")
+    
+    else:
+        print(f"Input path not found: {args.input}", file=sys.stderr)
+        sys.exit(1)
+
+
+async def async_main(args):
+    """Asynchronous main function with Discord integration."""
+    # Initialize processor
+    processor = MarkdownProcessor(template_dir=args.template_dir)
+    
+    # Process input
+    if os.path.isfile(args.input):
+        # Single file
+        result = await processor.process_file_with_discord(args.input, args.output, args.template)
+        if result['success']:
+            print(f"✅ Processed: {args.input}")
+            print(f"   Title: {result['title']}")
+            print(f"   Summary: {result['summary']}")
+            print(f"   Word count: {result['word_count']}")
+            if result.get('html_output'):
+                print(f"   HTML: {result['html_output']}")
+            if result.get('pdf_output'):
+                print(f"   PDF: {result['pdf_output']}")
+            if result.get('discord_sent'):
+                print(f"   📤 Sent to Discord: ✅")
+            elif result.get('discord_error'):
+                print(f"   📤 Discord error: {result['discord_error']}")
+        else:
+            print(f"❌ Error: {result['error']}", file=sys.stderr)
+            sys.exit(1)
+    
+    elif os.path.isdir(args.input):
+        # Directory
+        markdown_files = []
+        for root, dirs, files in os.walk(args.input):
+            for file in files:
+                if file.lower().endswith('.md'):
+                    markdown_files.append(os.path.join(root, file))
+        
+        if not markdown_files:
+            print(f"No markdown files found in {args.input}", file=sys.stderr)
+            sys.exit(1)
+        
+        successful = 0
+        discord_sent = 0
+        for md_file in markdown_files:
+            result = await processor.process_file_with_discord(md_file, args.output, args.template)
+            if result['success']:
+                successful += 1
+                if result.get('discord_sent'):
+                    discord_sent += 1
+                if args.verbose:
+                    print(f"✅ Processed: {md_file}")
+                    if result.get('discord_sent'):
+                        print(f"   📤 Sent to Discord: ✅")
+            else:
+                print(f"❌ Error processing {md_file}: {result['error']}", file=sys.stderr)
+        
+        print(f"Processed {successful}/{len(markdown_files)} files successfully")
+        print(f"Sent {discord_sent} PDFs to Discord")
     
     else:
         print(f"Input path not found: {args.input}", file=sys.stderr)
