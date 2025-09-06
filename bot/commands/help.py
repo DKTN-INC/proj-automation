@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import discord
-from discord.ext import commands
 from discord import app_commands
+from discord.ext import commands
 
 
 class HelpCog(commands.Cog):
@@ -11,7 +11,7 @@ class HelpCog(commands.Cog):
 
     @app_commands.command(name="help", description="Show help and common commands")
     async def help_cmd(self, interaction: discord.Interaction) -> None:
-        embed = discord.Embed(title="Help", color=0x2b6cb0)
+        embed = discord.Embed(title="Help", color=0x2B6CB0)
         embed.add_field(
             name="Common",
             value="\n".join(

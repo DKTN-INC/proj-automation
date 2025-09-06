@@ -6,7 +6,6 @@ Handles environment variables and bot settings
 
 import os
 from pathlib import Path
-from typing import Optional
 
 
 class BotConfig:
@@ -58,4 +57,6 @@ class BotConfig:
         self._ensure_directories()
 
     def _ensure_directories(self):
-        """Create necessa
+        """Create necessary directories."""
+        self.temp_dir.mkdir(parents=True, exist_ok=True)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
