@@ -19,10 +19,19 @@ Perfect for technical teams, open source communities, and anyone looking to auto
 ## Features
 
 ### Discord Bot Commands
-- **`/ask <question>`**: Create a threaded discussion for team questions with automatic thread creation
-- **`/summarize [channel] [hours]`**: Generate summaries of channel activity with participation metrics and highlights
+- **`/ask <question>`**: Create a threaded discussion for team questions with automatic thread creation and AI-powered response suggestions
+- **`/summarize [channel] [hours]`**: Generate advanced summaries of channel activity with AI insights, participation metrics, and activity analysis
+- **Per-User Cooldowns**: Rate limiting to prevent spam (30s for /ask, 60s for /summarize)
 - **Thread Management**: Automatic thread creation for organized discussions
 - **Rich Embeds**: Professional message formatting with timestamps and metadata
+- **Smart Message Chunking**: Handles long responses by safely splitting them across multiple messages
+
+### AI & Advanced Features
+- **OpenAI Integration**: AI-powered question answering and text summarization
+- **Thread Pool Processing**: CPU-intensive tasks offloaded from main bot loop
+- **Structured Logging**: JSON-formatted logs with contextual information for monitoring
+- **Async Architecture**: High-performance async operations for better responsiveness
+- **Error Recovery**: Graceful handling of API failures and network issues
 
 ### Automated PDF Generation
 - **Markdown Processing**: Converts Markdown files to professionally styled PDFs
@@ -92,10 +101,19 @@ brew install wkhtmltopdf
 3. **Configure Environment:**
    ```sh
    cp bot/.env.template bot/.env
-   # Edit bot/.env and add your Discord bot token
+   # Edit bot/.env and add your credentials:
+   # DISCORD_BOT_TOKEN=your_discord_bot_token
+   # OPENAI_API_KEY=your_openai_api_key  # Optional for AI features
+   # LOG_LEVEL=INFO
+   # STRUCTURED_LOGS=false
    ```
 
-4. **Run the Bot:**
+4. **Validate Setup:**
+   ```sh
+   python setup_bot.py
+   ```
+
+5. **Run the Bot:**
    ```sh
    cd bot
    python main.py
