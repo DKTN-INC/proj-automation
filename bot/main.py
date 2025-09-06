@@ -6,19 +6,21 @@ Provides /ask and /summarize commands for team collaboration.
 Full-featured bot with AI integration, file processing, and automation.
 """
 
-import os
 import asyncio
 import logging
+import os
 import signal
 import tempfile
-from pathlib import Path
+from collections.abc import Callable
 from datetime import datetime, timedelta
-from typing import Optional, List, Callable, Any, Dict, Tuple
+from pathlib import Path
+from typing import Any
 
 import aiofiles
 import discord
-from discord.ext import commands
 from discord import app_commands
+from discord.ext import commands
+
 
 # -----------------------------------------------------------------------------
 # Imports from our package with fallbacks for direct execution
@@ -28,45 +30,49 @@ try:
         config,
     )  # config object with directories, tokens, validation, etc.
     from .utils import (
-        memory,
         ai_helper,
-        file_processor,
         code_analyzer,
+        file_processor,
         github_helper,
+        memory,
         web_search,
     )
 except ImportError:
     from config import config  # type: ignore
     from utils import (  # type: ignore
-        memory,
         ai_helper,
-        file_processor,
         code_analyzer,
+        file_processor,
         github_helper,
+        memory,
         web_search,
     )
 
 # Optional advanced modules (structured logging, cooldowns, OpenAI wrapper, thread pool)
 try:
-    from .logging_config import setup_logging, log_command_execution, log_bot_event  # type: ignore
+    from .circuit_breaker import circuit_manager
     from .health_monitor import (
         health_monitor,
+        register_health_check,
         start_health_monitoring,
         stop_health_monitoring,
-        register_health_check,
     )
-    from .circuit_breaker import circuit_manager
+    from .logging_config import log_bot_event, log_command_execution, setup_logging  # type: ignore
     from .resource_manager import cleanup_resources, get_resource_stats
 except Exception:
     try:
-        from logging_config import setup_logging, log_command_execution, log_bot_event  # type: ignore
+        from circuit_breaker import circuit_manager
         from health_monitor import (
             health_monitor,
+            register_health_check,
             start_health_monitoring,
             stop_health_monitoring,
-            register_health_check,
         )
-        from circuit_breaker import circuit_manager
+        from logging_config import (  # type: ignore
+            log_bot_event,
+            log_command_execution,
+            setup_logging,
+        )
         from resource_manager import cleanup_resources, get_resource_stats
     except Exception:
         # Fallbacks
@@ -87,7 +93,7 @@ except Exception:
         async def cleanup_resources() -> None:
             pass
 
-        async def get_resource_stats() -> Dict[str, Any]:
+        async def get_resource_stats() -> dict[str, Any]:
             return {}
 
         def log_command_execution(
@@ -128,23 +134,27 @@ except Exception:
         OpenAIWrapper = None  # type: ignore
 
 try:
-    from .thread_pool import thread_pool, parse_discord_messages, shutdown_thread_pool  # type: ignore
+    from .thread_pool import (  # type: ignore
+        parse_discord_messages,
+        shutdown_thread_pool,
+        thread_pool,
+    )
 except Exception:
     try:
         from thread_pool import (
-            thread_pool,
             parse_discord_messages,
             shutdown_thread_pool,
+            thread_pool,
         )  # type: ignore
     except Exception:
         thread_pool = None  # type: ignore
 
         async def parse_discord_messages(
-            messages: List[Dict[str, Any]],
-        ) -> Dict[str, Any]:  # type: ignore
+            messages: list[dict[str, Any]],
+        ) -> dict[str, Any]:  # type: ignore
             # Minimal fallback analysis
-            users: Dict[str, Dict[str, int]] = {}
-            hours: Dict[int, int] = {}
+            users: dict[str, dict[str, int]] = {}
+            hours: dict[int, int] = {}
             for m in messages:
                 a = m.get("author", "unknown")
                 users.setdefault(a, {"message_count": 0, "reactions_received": 0})
@@ -185,7 +195,7 @@ else:
 # -----------------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------------
-def get_openai_api_key() -> Optional[str]:
+def get_openai_api_key() -> str | None:
     # Prefer config if present, then env var
     key = getattr(config, "openai_api_key", None)
     if not key:
@@ -193,7 +203,7 @@ def get_openai_api_key() -> Optional[str]:
     return key or os.getenv("OPENAI_API_KEY")
 
 
-def get_discord_token() -> Optional[str]:
+def get_discord_token() -> str | None:
     token = getattr(config, "discord_token", None)
     if not token:
         token = os.getenv("DISCORD_BOT_TOKEN")
@@ -221,17 +231,17 @@ except Exception:
 class _BasicChunker:
     MAX_EMBED = 4000
 
-    def chunk_text(self, text: str, size: int = 1800) -> List[str]:
+    def chunk_text(self, text: str, size: int = 1800) -> list[str]:
         return [text[i : i + size] for i in range(0, len(text), size)]
 
-    def add_chunk_indicators(self, chunks: List[str]) -> List[str]:
+    def add_chunk_indicators(self, chunks: list[str]) -> list[str]:
         total = len(chunks)
         return [f"{c}\n\n({i + 1}/{total})" for i, c in enumerate(chunks)]
 
     def truncate_with_ellipsis(self, text: str, max_len: int) -> str:
         return text if len(text) <= max_len else text[: max_len - 1] + "…"
 
-    def chunk_for_embed_description(self, text: str) -> List[str]:
+    def chunk_for_embed_description(self, text: str) -> list[str]:
         return self.chunk_text(text, size=self.MAX_EMBED - 100)
 
 
@@ -328,11 +338,7 @@ async def handle_dm_message(message: discord.Message):
 
     # Admin uploads to helpdocs
     try:
-        if (
-            hasattr(config, "is_admin")
-            and config.is_admin(user.id)
-            and message.attachments
-        ):
+        if hasattr(config, "is_admin") and config.is_admin(user.id) and message.attachments:
             await handle_admin_file_upload(message)
             return
     except Exception:
@@ -354,19 +360,14 @@ async def handle_admin_file_upload(message: discord.Message):
     for attachment in message.attachments:
         try:
             file_path = (
-                Path(getattr(config, "helpdocs_dir", Path("docs/helpdocs")))
-                / attachment.filename
+                Path(getattr(config, "helpdocs_dir", Path("docs/helpdocs"))) / attachment.filename
             )
             async with aiofiles.open(file_path, "wb") as f:
                 data = await attachment.read()
                 await f.write(data)
 
-            await message.reply(
-                f"✅ File `{attachment.filename}` uploaded to helpdocs/"
-            )
-            logger.info(
-                f"Admin {user.display_name} uploaded {attachment.filename} to helpdocs"
-            )
+            await message.reply(f"✅ File `{attachment.filename}` uploaded to helpdocs/")
+            logger.info(f"Admin {user.display_name} uploaded {attachment.filename} to helpdocs")
         except Exception as e:
             await message.reply(f"❌ Failed to upload {attachment.filename}: {str(e)}")
             logger.error(f"Admin upload failed: {e}")
@@ -478,9 +479,7 @@ async def handle_markdown_intake(message: discord.Message):
 {content}
 """
 
-        ideasheets_dir = Path(
-            getattr(config, "ideasheets_dir", Path("docs/ideasheets"))
-        )
+        ideasheets_dir = Path(getattr(config, "ideasheets_dir", Path("docs/ideasheets")))
         output_dir = Path(getattr(config, "output_dir", Path("output")))
         ideasheets_dir.mkdir(parents=True, exist_ok=True)
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -491,9 +490,7 @@ async def handle_markdown_intake(message: discord.Message):
 
         # Create HTML and PDF versions
         html_title = title.replace("-", " ").title() if title else "Untitled Idea"
-        html_content = await file_processor.markdown_to_html(
-            markdown_content, html_title
-        )
+        html_content = await file_processor.markdown_to_html(markdown_content, html_title)
 
         html_path = output_dir / f"{filename_base}.html"
         pdf_path = output_dir / f"{filename_base}.pdf"
@@ -579,7 +576,7 @@ async def handle_guild_message(message: discord.Message):
 async def analyze_code_in_message(message: discord.Message):
     """Analyze code blocks in messages and suggest improvements."""
     content = message.content or ""
-    code_blocks: List[Tuple[str, str]] = []
+    code_blocks: list[tuple[str, str]] = []
 
     # Extract simple code blocks
     parts = content.split("```")
@@ -610,9 +607,7 @@ async def analyze_code_in_message(message: discord.Message):
                     embed = discord.Embed(
                         title="🔍 Code Analysis Results",
                         description="\n".join(issues[:10]),
-                        color=0xE74C3C
-                        if any("❌" in issue for issue in issues)
-                        else 0xF39C12,
+                        color=0xE74C3C if any("❌" in issue for issue in issues) else 0xF39C12,
                     )
 
                     if getattr(ai_helper, "available", False):
@@ -634,9 +629,7 @@ async def analyze_code_in_message(message: discord.Message):
 # -----------------------------------------------------------------------------
 # Slash Commands
 # -----------------------------------------------------------------------------
-@bot.tree.command(
-    name="submit-idea", description="Submit a new idea to the ideasheets collection"
-)
+@bot.tree.command(name="submit-idea", description="Submit a new idea to the ideasheets collection")
 @app_commands.describe(
     title="Title of your idea",
     description="Detailed description of your idea",
@@ -646,16 +639,14 @@ async def submit_idea_command(
     interaction: discord.Interaction,
     title: str,
     description: str,
-    tags: Optional[str] = None,
+    tags: str | None = None,
 ):
     await interaction.response.defer()
 
     try:
         user = interaction.user
 
-        filename_base = "".join(
-            c for c in title if c.isalnum() or c in (" ", "-", "_")
-        ).rstrip()
+        filename_base = "".join(c for c in title if c.isalnum() or c in (" ", "-", "_")).rstrip()
         filename_base = filename_base.replace(" ", "-").lower()[:50]
         filename = f"{filename_base}.md"
 
@@ -678,9 +669,7 @@ async def submit_idea_command(
 {description}
 """
 
-        ideasheets_dir = Path(
-            getattr(config, "ideasheets_dir", Path("docs/ideasheets"))
-        )
+        ideasheets_dir = Path(getattr(config, "ideasheets_dir", Path("docs/ideasheets")))
         output_dir = Path(getattr(config, "output_dir", Path("output")))
         ideasheets_dir.mkdir(parents=True, exist_ok=True)
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -725,18 +714,14 @@ async def submit_idea_command(
         except Exception:
             pass
 
-        logger.info(
-            f"Idea submitted via slash command: {filename} by {user.display_name}"
-        )
+        logger.info(f"Idea submitted via slash command: {filename} by {user.display_name}")
 
     except Exception as e:
         await interaction.followup.send(f"❌ Failed to submit idea: {str(e)}")
         logger.error(f"Submit idea error: {e}")
 
 
-@bot.tree.command(
-    name="get-doc", description="Retrieve a document from ideasheets or helpdocs"
-)
+@bot.tree.command(name="get-doc", description="Retrieve a document from ideasheets or helpdocs")
 @app_commands.describe(
     filename="Name of the file to retrieve", format="Output format (markdown/html/pdf)"
 )
@@ -755,13 +740,12 @@ async def get_doc_command(
     try:
         search_paths = [
             Path(getattr(config, "ideasheets_dir", Path("docs/ideasheets"))) / filename,
-            Path(getattr(config, "ideasheets_dir", Path("docs/ideasheets")))
-            / f"{filename}.md",
+            Path(getattr(config, "ideasheets_dir", Path("docs/ideasheets"))) / f"{filename}.md",
             Path(getattr(config, "helpdocs_dir", Path("docs/helpdocs"))) / filename,
             Path(getattr(config, "output_dir", Path("output"))) / filename,
         ]
 
-        found_file: Optional[Path] = None
+        found_file: Path | None = None
         for path in search_paths:
             if path.exists():
                 found_file = path
@@ -769,12 +753,8 @@ async def get_doc_command(
 
         if not found_file:
             all_files = list(
-                Path(getattr(config, "ideasheets_dir", Path("docs/ideasheets"))).glob(
-                    "*.md"
-                )
-            ) + list(
-                Path(getattr(config, "helpdocs_dir", Path("docs/helpdocs"))).glob("*")
-            )
+                Path(getattr(config, "ideasheets_dir", Path("docs/ideasheets"))).glob("*.md")
+            ) + list(Path(getattr(config, "helpdocs_dir", Path("docs/helpdocs"))).glob("*"))
             matches = [f for f in all_files if filename.lower() in f.name.lower()]
 
             if matches:
@@ -790,7 +770,7 @@ async def get_doc_command(
         output_dir.mkdir(parents=True, exist_ok=True)
 
         if format == "markdown" or found_file.suffix == ".md":
-            async with aiofiles.open(found_file, "r", encoding="utf-8") as f:
+            async with aiofiles.open(found_file, encoding="utf-8") as f:
                 content = await f.read()
 
             if len(content) > 1900:
@@ -808,12 +788,10 @@ async def get_doc_command(
 
         elif format == "html":
             if found_file.suffix == ".md":
-                async with aiofiles.open(found_file, "r", encoding="utf-8") as f:
+                async with aiofiles.open(found_file, encoding="utf-8") as f:
                     md_content = await f.read()
 
-                html_content = await file_processor.markdown_to_html(
-                    md_content, found_file.stem
-                )
+                html_content = await file_processor.markdown_to_html(md_content, found_file.stem)
                 html_path = output_dir / f"{found_file.stem}.html"
 
                 async with aiofiles.open(html_path, "w", encoding="utf-8") as f:
@@ -824,18 +802,14 @@ async def get_doc_command(
                     file=discord.File(str(html_path)),
                 )
             else:
-                await interaction.followup.send(
-                    f"❌ Cannot convert {found_file.suffix} to HTML"
-                )
+                await interaction.followup.send(f"❌ Cannot convert {found_file.suffix} to HTML")
 
         elif format == "pdf":
             if found_file.suffix == ".md":
-                async with aiofiles.open(found_file, "r", encoding="utf-8") as f:
+                async with aiofiles.open(found_file, encoding="utf-8") as f:
                     md_content = await f.read()
 
-                html_content = await file_processor.markdown_to_html(
-                    md_content, found_file.stem
-                )
+                html_content = await file_processor.markdown_to_html(md_content, found_file.stem)
                 pdf_path = output_dir / f"{found_file.stem}.pdf"
 
                 pdf_success = await file_processor.html_to_pdf(html_content, pdf_path)
@@ -848,9 +822,7 @@ async def get_doc_command(
                 else:
                     await interaction.followup.send("❌ Failed to generate PDF")
             else:
-                await interaction.followup.send(
-                    f"❌ Cannot convert {found_file.suffix} to PDF"
-                )
+                await interaction.followup.send(f"❌ Cannot convert {found_file.suffix} to PDF")
 
     except Exception as e:
         await interaction.followup.send(f"❌ Error retrieving document: {str(e)}")
@@ -870,9 +842,7 @@ async def ask_command(interaction: discord.Interaction, question: str):
     )
     embed.set_author(
         name=interaction.user.display_name,
-        icon_url=interaction.user.avatar.url
-        if getattr(interaction.user, "avatar", None)
-        else None,
+        icon_url=interaction.user.avatar.url if getattr(interaction.user, "avatar", None) else None,
     )
     embed.set_footer(text="Use this thread to discuss the question")
 
@@ -884,9 +854,7 @@ async def ask_command(interaction: discord.Interaction, question: str):
             name=f"Q: {question[:50]}{'...' if len(question) > 50 else ''}",
             auto_archive_duration=1440,
         )
-        await thread.send(
-            "💬 Discussion thread created! Reply here to discuss this question."
-        )
+        await thread.send("💬 Discussion thread created! Reply here to discuss this question.")
 
         # If OpenAI is available, try to provide a helpful response
         if get_openai_api_key():
@@ -909,9 +877,7 @@ async def ask_command(interaction: discord.Interaction, question: str):
         logger.error(f"Failed to create thread: {e}")
 
 
-@bot.tree.command(
-    name="summarize", description="Request a summary of recent discussions"
-)
+@bot.tree.command(name="summarize", description="Request a summary of recent discussions")
 @app_commands.describe(
     channel="Channel to summarize (default: current channel)",
     hours="Hours to look back (default: 24)",
@@ -920,7 +886,7 @@ async def ask_command(interaction: discord.Interaction, question: str):
 @log_command_execution(logger)
 async def summarize_command(
     interaction: discord.Interaction,
-    channel: Optional[discord.TextChannel] = None,
+    channel: discord.TextChannel | None = None,
     hours: int = 24,
 ):
     target_channel = channel or interaction.channel  # type: ignore
@@ -930,7 +896,7 @@ async def summarize_command(
     try:
         threshold = datetime.utcnow() - timedelta(hours=hours)
 
-        messages: List[Dict[str, Any]] = []
+        messages: list[dict[str, Any]] = []
         async for msg in target_channel.history(  # type: ignore
             limit=100, after=threshold, oldest_first=False
         ):
@@ -940,9 +906,7 @@ async def summarize_command(
                         "author": msg.author.display_name,
                         "content": msg.content,
                         "timestamp": msg.created_at,
-                        "reactions": sum(r.count for r in msg.reactions)
-                        if msg.reactions
-                        else 0,
+                        "reactions": sum(r.count for r in msg.reactions) if msg.reactions else 0,
                     }
                 )
 
@@ -980,16 +944,12 @@ async def summarize_command(
             summary_text += "\n**⭐ Highlighted Messages:**\n"
             for m in sorted(highlights, key=lambda x: x["reactions"], reverse=True)[:3]:
                 content = chunker.truncate_with_ellipsis(m["content"], 100)
-                summary_text += (
-                    f"• **{m['author']}** ({m['reactions']} 👍): {content}\n"
-                )
+                summary_text += f"• **{m['author']}** ({m['reactions']} 👍): {content}\n"
 
         ai_summary = None
         if get_openai_api_key() and len(messages) >= 5:
             try:
-                context = "\n".join(
-                    [f"{m['author']}: {m['content'][:200]}" for m in messages[:20]]
-                )
+                context = "\n".join([f"{m['author']}: {m['content'][:200]}" for m in messages[:20]])
                 client = await get_openai_client()
                 ai_summary = await client.summarize_text(context, max_length=300)
             except Exception as e:
@@ -1010,9 +970,7 @@ async def summarize_command(
                 await interaction.followup.send(embed=continuation_embed)
 
         if ai_summary:
-            ai_embed = discord.Embed(
-                title="🤖 AI Summary", description=ai_summary, color=0x9B59B6
-            )
+            ai_embed = discord.Embed(title="🤖 AI Summary", description=ai_summary, color=0x9B59B6)
             await interaction.followup.send(embed=ai_embed)
 
     except Exception as e:
@@ -1070,9 +1028,7 @@ async def health_command(interaction: discord.Interaction, detailed: bool = Fals
                     if metric.value is not None and metric.threshold is not None:
                         value += f"\nValue: {metric.value:.1f} (threshold: {metric.threshold})"
 
-                    embed.add_field(
-                        name=name.replace("_", " ").title(), value=value, inline=True
-                    )
+                    embed.add_field(name=name.replace("_", " ").title(), value=value, inline=True)
             else:
                 # Summary view
                 healthy_count = sum(
@@ -1097,16 +1053,18 @@ async def health_command(interaction: discord.Interaction, detailed: bool = Fals
                 if resource_stats:
                     stats_text = ""
                     if "memory" in resource_stats:
-                        stats_text += f"Memory: {resource_stats['memory'].get('gc_counts', [0])[0]} objects\n"
+                        stats_text += (
+                            f"Memory: {resource_stats['memory'].get('gc_counts', [0])[0]} objects\n"
+                        )
                     if "http_sessions" in resource_stats:
                         stats_text += f"HTTP Sessions: {resource_stats['http_sessions'].get('active_sessions', 0)}\n"
                     if "files" in resource_stats:
-                        stats_text += f"Temp Files: {resource_stats['files'].get('active_files', 0)}\n"
+                        stats_text += (
+                            f"Temp Files: {resource_stats['files'].get('active_files', 0)}\n"
+                        )
 
                     if stats_text:
-                        embed.add_field(
-                            name="Resource Usage", value=stats_text, inline=True
-                        )
+                        embed.add_field(name="Resource Usage", value=stats_text, inline=True)
             except Exception as e:
                 logger.warning(f"Failed to get resource stats: {e}")
 
@@ -1145,9 +1103,7 @@ bot.tree.add_command(health_command)
 # Traditional Commands
 # -----------------------------------------------------------------------------
 @bot.command(name="createpr")
-async def create_pr_command(
-    ctx: commands.Context, repo_name: str, title: str, *, body: str = ""
-):
+async def create_pr_command(ctx: commands.Context, repo_name: str, title: str, *, body: str = ""):
     """Create a GitHub pull request."""
     if not getattr(github_helper, "available", False):
         await ctx.send("❌ GitHub integration not available (token required)")
@@ -1157,8 +1113,7 @@ async def create_pr_command(
         result = await github_helper.create_pr(
             repo_name=repo_name,
             title=title,
-            body=body
-            or f"Pull request created by {ctx.author.display_name} via Discord bot",
+            body=body or f"Pull request created by {ctx.author.display_name} via Discord bot",
             head_branch="feature-branch",  # TODO: make dynamic
             base_branch="main",
         )
@@ -1242,9 +1197,7 @@ async def github_issues_command(
 @bot.event
 async def on_command_error(ctx: commands.Context, error: Exception):
     """Handle command errors."""
-    logger.error(
-        f"Command error in {getattr(ctx, 'command', None)}: {error}", exc_info=True
-    )
+    logger.error(f"Command error in {getattr(ctx, 'command', None)}: {error}", exc_info=True)
     try:
         await ctx.send(f"❌ Command error: {str(error)}")
     except Exception:
@@ -1281,7 +1234,7 @@ async def on_resumed():
 # -----------------------------------------------------------------------------
 # Health Check Functions
 # -----------------------------------------------------------------------------
-async def check_discord_health() -> Dict[str, Any]:
+async def check_discord_health() -> dict[str, Any]:
     """Check Discord connection health."""
     try:
         if bot.is_ready() and not bot.is_closed():
@@ -1312,7 +1265,7 @@ async def check_discord_health() -> Dict[str, Any]:
         }
 
 
-async def check_openai_health() -> Dict[str, Any]:
+async def check_openai_health() -> dict[str, Any]:
     """Check OpenAI service health."""
     try:
         if OpenAIWrapper and _openai_client:
@@ -1337,7 +1290,7 @@ async def check_openai_health() -> Dict[str, Any]:
         }
 
 
-async def check_database_health() -> Dict[str, Any]:
+async def check_database_health() -> dict[str, Any]:
     """Check database connection health."""
     try:
         # Simple database health check
@@ -1407,16 +1360,14 @@ def main():
             else:
                 logger.warning(message)
         if not is_valid:
-            logger.error(
-                "Bot configuration is invalid! Please check your environment variables."
-            )
+            logger.error("Bot configuration is invalid! Please check your environment variables.")
     except Exception as e:
         logger.warning(f"Config validation failed/skipped: {e}")
 
     # Startup info
     try:
         logger.info("Starting Discord bot...")
-        logger.info(f"Features available:")
+        logger.info("Features available:")
         logger.info(
             f"  - AI Integration: {'✅' if getattr(ai_helper, 'available', False) else '❌'}"
         )
@@ -1430,9 +1381,7 @@ def main():
 
     token = get_discord_token()
     if not token:
-        logger.error(
-            "Missing Discord token. Set DISCORD_BOT_TOKEN or config.discord_token."
-        )
+        logger.error("Missing Discord token. Set DISCORD_BOT_TOKEN or config.discord_token.")
         return
 
     # Graceful shutdown signals (best-effort; may not work on Windows)

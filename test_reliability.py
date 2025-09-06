@@ -9,7 +9,7 @@ import asyncio
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 
 # Add bot directory to path
@@ -52,7 +52,7 @@ class ReliabilityTester:
 
     def __init__(self):
         """Initialize the reliability tester."""
-        self.results: Dict[str, Dict[str, Any]] = {}
+        self.results: dict[str, dict[str, Any]] = {}
 
     async def run_all_tests(self) -> bool:
         """Run all reliability tests."""
@@ -217,9 +217,7 @@ class ReliabilityTester:
             file_manager = FileManager(max_files=5, max_age_hours=1)
 
             # Test temporary file creation and cleanup
-            async with temporary_file(
-                suffix=".test", prefix="reliability_test_"
-            ) as temp_file:
+            async with temporary_file(suffix=".test", prefix="reliability_test_") as temp_file:
                 assert temp_file.exists()
 
                 # Write some data

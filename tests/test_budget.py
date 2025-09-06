@@ -5,88 +5,77 @@ Tests the budget summarization and spending categorization features.
 """
 
 import sys
-from pathlib import Path
 from decimal import Decimal
+from pathlib import Path
+
 
 # Add bot directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "bot"))
 
-from features.budget import summarize_budget, categorize_spend  # noqa: E402
+from features.budget import categorize_spend, summarize_budget  # noqa: E402
 
 
 def test_summarize_budget_empty_transactions():
     """Test budget summary with no transactions."""
     result = summarize_budget([], 1000)
 
-    assert result.totals == Decimal('0')
-    assert result.remaining == Decimal('1000')
+    assert result.totals == Decimal("0")
+    assert result.remaining == Decimal("1000")
     assert result.percent_used == 0.0
     assert result.status == "unused"
 
 
 def test_summarize_budget_under_budget():
     """Test budget summary when under budget."""
-    transactions = [
-        {'amount': 100.50},
-        {'amount': 250.25}
-    ]
+    transactions = [{"amount": 100.50}, {"amount": 250.25}]
     result = summarize_budget(transactions, 1000)
 
-    assert result.totals == Decimal('350.75')
-    assert result.remaining == Decimal('649.25')
+    assert result.totals == Decimal("350.75")
+    assert result.remaining == Decimal("649.25")
     assert result.percent_used == 35.1  # Rounded to 1 decimal place
     assert result.status == "under_budget"
 
 
 def test_summarize_budget_on_track():
     """Test budget summary when on track (50-79% used)."""
-    transactions = [
-        {'amount': 300},
-        {'amount': 400}
-    ]
+    transactions = [{"amount": 300}, {"amount": 400}]
     result = summarize_budget(transactions, 1000)
 
-    assert result.totals == Decimal('700')
-    assert result.remaining == Decimal('300')
+    assert result.totals == Decimal("700")
+    assert result.remaining == Decimal("300")
     assert result.percent_used == 70.0
     assert result.status == "on_track"
 
 
 def test_summarize_budget_warning():
     """Test budget summary when in warning range (80-99% used)."""
-    transactions = [
-        {'amount': 450},
-        {'amount': 400}
-    ]
+    transactions = [{"amount": 450}, {"amount": 400}]
     result = summarize_budget(transactions, 1000)
 
-    assert result.totals == Decimal('850')
-    assert result.remaining == Decimal('150')
+    assert result.totals == Decimal("850")
+    assert result.remaining == Decimal("150")
     assert result.percent_used == 85.0
     assert result.status == "warning"
 
 
 def test_summarize_budget_over_budget():
     """Test budget summary when over budget (100%+ used)."""
-    transactions = [
-        {'amount': 600},
-        {'amount': 500}
-    ]
+    transactions = [{"amount": 600}, {"amount": 500}]
     result = summarize_budget(transactions, 1000)
 
-    assert result.totals == Decimal('1100')
-    assert result.remaining == Decimal('-100')
+    assert result.totals == Decimal("1100")
+    assert result.remaining == Decimal("-100")
     assert result.percent_used == 110.0
     assert result.status == "over_budget"
 
 
 def test_summarize_budget_with_decimal_limit():
     """Test budget summary with Decimal limit."""
-    transactions = [{'amount': 123.45}]
-    result = summarize_budget(transactions, Decimal('500.00'))
+    transactions = [{"amount": 123.45}]
+    result = summarize_budget(transactions, Decimal("500.00"))
 
-    assert result.totals == Decimal('123.45')
-    assert result.remaining == Decimal('376.55')
+    assert result.totals == Decimal("123.45")
+    assert result.remaining == Decimal("376.55")
     assert result.percent_used == 24.7
     assert result.status == "under_budget"
 
@@ -100,75 +89,54 @@ def test_categorize_spend_empty_items():
 def test_categorize_spend_default_keys():
     """Test categorization with default category and amount keys."""
     items = [
-        {'category': 'Food', 'amount': 150.75},
-        {'category': 'Transport', 'amount': 50.25},
-        {'category': 'Food', 'amount': 75.50}
+        {"category": "Food", "amount": 150.75},
+        {"category": "Transport", "amount": 50.25},
+        {"category": "Food", "amount": 75.50},
     ]
     result = categorize_spend(items)
 
-    expected = {
-        'Food': Decimal('226.25'),
-        'Transport': Decimal('50.25')
-    }
+    expected = {"Food": Decimal("226.25"), "Transport": Decimal("50.25")}
     assert result == expected
 
 
 def test_categorize_spend_custom_keys():
     """Test categorization with custom category and amount keys."""
     items = [
-        {'type': 'Office', 'cost': 100},
-        {'type': 'Travel', 'cost': 200},
-        {'type': 'Office', 'cost': 50}
+        {"type": "Office", "cost": 100},
+        {"type": "Travel", "cost": 200},
+        {"type": "Office", "cost": 50},
     ]
-    result = categorize_spend(items, category_key='type', amount_key='cost')
+    result = categorize_spend(items, category_key="type", amount_key="cost")
 
-    expected = {
-        'Office': Decimal('150.00'),
-        'Travel': Decimal('200.00')
-    }
+    expected = {"Office": Decimal("150.00"), "Travel": Decimal("200.00")}
     assert result == expected
 
 
 def test_categorize_spend_missing_category():
     """Test categorization when category is missing."""
-    items = [
-        {'amount': 100},
-        {'category': 'Food', 'amount': 50}
-    ]
+    items = [{"amount": 100}, {"category": "Food", "amount": 50}]
     result = categorize_spend(items)
 
-    expected = {
-        'uncategorized': Decimal('100.00'),
-        'Food': Decimal('50.00')
-    }
+    expected = {"uncategorized": Decimal("100.00"), "Food": Decimal("50.00")}
     assert result == expected
 
 
 def test_categorize_spend_missing_amount():
     """Test categorization when amount is missing."""
-    items = [
-        {'category': 'Food'},
-        {'category': 'Transport', 'amount': 100}
-    ]
+    items = [{"category": "Food"}, {"category": "Transport", "amount": 100}]
     result = categorize_spend(items)
 
-    expected = {
-        'Food': Decimal('0.00'),
-        'Transport': Decimal('100.00')
-    }
+    expected = {"Food": Decimal("0.00"), "Transport": Decimal("100.00")}
     assert result == expected
 
 
 def test_categorize_spend_decimal_precision():
     """Test that categorization rounds to 2 decimal places."""
-    items = [
-        {'category': 'Test', 'amount': 10.555},
-        {'category': 'Test', 'amount': 20.444}
-    ]
+    items = [{"category": "Test", "amount": 10.555}, {"category": "Test", "amount": 20.444}]
     result = categorize_spend(items)
 
     # Should round to 30.56 + 20.44 = 31.00
-    expected = {'Test': Decimal('31.00')}
+    expected = {"Test": Decimal("31.00")}
     assert result == expected
 
 
@@ -186,7 +154,7 @@ def run_all_tests():
         test_categorize_spend_custom_keys,
         test_categorize_spend_missing_category,
         test_categorize_spend_missing_amount,
-        test_categorize_spend_decimal_precision
+        test_categorize_spend_decimal_precision,
     ]
 
     passed = 0

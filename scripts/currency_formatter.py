@@ -5,7 +5,6 @@ Provides currency formatting with locale support including UK defaults
 """
 
 from decimal import Decimal
-from typing import Union
 
 
 class CurrencyFormatter:
@@ -49,7 +48,7 @@ class CurrencyFormatter:
         """Create formatter with UK defaults (GBP, en_GB, £)."""
         return cls(**cls.UK_DEFAULTS)
 
-    def format_amount(self, amount: Union[float, int, str, Decimal]) -> str:
+    def format_amount(self, amount: float | int | str | Decimal) -> str:
         """
         Format an amount with currency symbol and locale formatting.
 
@@ -81,7 +80,7 @@ class CurrencyFormatter:
         except (ValueError, TypeError) as e:
             raise ValueError(f"Invalid amount for currency formatting: {amount}") from e
 
-    def format_with_code(self, amount: Union[float, int, str, Decimal]) -> str:
+    def format_with_code(self, amount: float | int | str | Decimal) -> str:
         """
         Format amount with currency code instead of symbol.
 
@@ -112,9 +111,7 @@ class CurrencyFormatter:
         try:
             # Remove currency symbol and code
             clean_amount = (
-                formatted_amount.replace(self.symbol, "")
-                .replace(self.currency_code, "")
-                .strip()
+                formatted_amount.replace(self.symbol, "").replace(self.currency_code, "").strip()
             )
             # Remove thousands separators
             clean_amount = clean_amount.replace(",", "")
@@ -124,13 +121,13 @@ class CurrencyFormatter:
 
 
 # Convenience functions for common currencies
-def format_gbp(amount: Union[float, int, str, Decimal]) -> str:
+def format_gbp(amount: float | int | str | Decimal) -> str:
     """Format amount as GBP with UK defaults."""
     formatter = CurrencyFormatter.uk_default()
     return formatter.format_amount(amount)
 
 
-def format_usd(amount: Union[float, int, str, Decimal]) -> str:
+def format_usd(amount: float | int | str | Decimal) -> str:
     """Format amount as USD."""
     formatter = CurrencyFormatter(
         currency_code="USD",
@@ -142,7 +139,7 @@ def format_usd(amount: Union[float, int, str, Decimal]) -> str:
     return formatter.format_amount(amount)
 
 
-def format_eur(amount: Union[float, int, str, Decimal]) -> str:
+def format_eur(amount: float | int | str | Decimal) -> str:
     """Format amount as EUR."""
     formatter = CurrencyFormatter(
         currency_code="EUR",

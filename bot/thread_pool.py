@@ -7,10 +7,11 @@ Manages thread pools for offloading CPU-intensive tasks from the main asyncio ev
 import asyncio
 import logging
 import time
+from collections.abc import Callable, Coroutine
 from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
 from threading import Lock
-from typing import Any, Callable, Coroutine, Optional, TypeVar
+from typing import Any, TypeVar
 
 
 logger = logging.getLogger(__name__)
@@ -22,7 +23,7 @@ class ThreadPoolManager:
 
     def __init__(self, max_workers: int = 4):
         self.max_workers = max_workers
-        self._executor: Optional[ThreadPoolExecutor] = None
+        self._executor: ThreadPoolExecutor | None = None
         self._lock = Lock()
         self._active_tasks = 0
 
@@ -304,12 +305,8 @@ def parse_discord_messages(messages: list) -> dict:
         "unique_users": len(user_stats),
         "hourly_activity": dict(hourly_activity),
         "top_emojis": emoji_usage.most_common(10),
-        "most_active_hours": sorted(
-            hourly_activity.items(), key=lambda x: x[1], reverse=True
-        )[:5],
-        "avg_message_length": sum(
-            stats["total_length"] for stats in user_stats.values()
-        )
+        "most_active_hours": sorted(hourly_activity.items(), key=lambda x: x[1], reverse=True)[:5],
+        "avg_message_length": sum(stats["total_length"] for stats in user_stats.values())
         / max(1, total_messages),
     }
 

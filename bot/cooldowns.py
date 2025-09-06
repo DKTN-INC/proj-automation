@@ -8,7 +8,6 @@ import asyncio
 import logging
 import time
 from collections import defaultdict
-from typing import Dict, Optional
 
 
 # Import discord for type hints
@@ -25,10 +24,10 @@ class CooldownManager:
     """Manages per-user cooldowns for Discord commands."""
 
     def __init__(self):
-        self._cooldowns: Dict[str, Dict[int, float]] = defaultdict(
+        self._cooldowns: dict[str, dict[int, float]] = defaultdict(
             dict
         )  # command -> user_id -> next_allowed_time
-        self._cleanup_task: Optional[asyncio.Task] = None
+        self._cleanup_task: asyncio.Task | None = None
 
     def _start_cleanup_task(self):
         """Start the background cleanup task."""
@@ -154,7 +153,7 @@ class CooldownManager:
 
         logger.debug(f"Reset all cooldowns for user {user_id}")
 
-    def get_user_cooldowns(self, user_id: int) -> Dict[str, float]:
+    def get_user_cooldowns(self, user_id: int) -> dict[str, float]:
         """
         Get all active cooldowns for a user.
 
@@ -175,7 +174,7 @@ class CooldownManager:
 
         return result
 
-    def get_cooldown_stats(self) -> Dict[str, int]:
+    def get_cooldown_stats(self) -> dict[str, int]:
         """
         Get statistics about active cooldowns.
 
@@ -189,10 +188,8 @@ class CooldownManager:
             "commands_with_cooldowns": 0,
         }
 
-        for command, users in self._cooldowns.items():
-            active_users = sum(
-                1 for next_time in users.values() if next_time > current_time
-            )
+        for _command, users in self._cooldowns.items():
+            active_users = sum(1 for next_time in users.values() if next_time > current_time)
             if active_users > 0:
                 stats["commands_with_cooldowns"] += 1
                 stats["total_active_cooldowns"] += active_users
@@ -229,10 +226,7 @@ class CooldownDecorator:
                 minutes = int(remaining // 60)
                 seconds = int(remaining % 60)
 
-                if minutes > 0:
-                    time_str = f"{minutes}m {seconds}s"
-                else:
-                    time_str = f"{seconds}s"
+                time_str = f"{minutes}m {seconds}s" if minutes > 0 else f"{seconds}s"
 
                 await interaction.response.send_message(
                     f"⏰ You're on cooldown! Please wait {time_str} before using this command again.",

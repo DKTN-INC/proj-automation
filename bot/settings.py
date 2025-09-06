@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from typing import Optional, Set
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
@@ -13,7 +12,7 @@ class Settings(BaseModel):
 
     # Security limits
     max_attachment_bytes: int = Field(5_000_000, ge=1, le=50_000_000)
-    allowed_mime_types: Set[str] = Field(
+    allowed_mime_types: set[str] = Field(
         default_factory=lambda: {
             "text/plain",
             "text/markdown",
@@ -25,7 +24,7 @@ class Settings(BaseModel):
     )
 
     # File system sandbox
-    tempdir_base: Optional[str] = Field(
+    tempdir_base: str | None = Field(
         default=None, description="Optional base directory for temp sandboxes"
     )
 
@@ -61,8 +60,7 @@ def load_settings() -> Settings:
             max_attachment_bytes=int(env.get("MAX_ATTACHMENT_BYTES", "5000000")),
             allowed_mime_types=(
                 set(env.get("ALLOWED_MIME_TYPES").split(","))
-                if env.get("ALLOWED_MIME_TYPES")
-                and env.get("ALLOWED_MIME_TYPES").strip()
+                if env.get("ALLOWED_MIME_TYPES") and env.get("ALLOWED_MIME_TYPES").strip()
                 else None
             ),
             tempdir_base=env.get("TEMPDIR_BASE") or None,

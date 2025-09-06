@@ -10,16 +10,14 @@ import gc
 import logging
 import os
 import tempfile
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import (
     Any,
-    Callable,
-    Dict,
     Generic,
-    Optional,
     TypeVar,
 )
 
@@ -40,7 +38,7 @@ class ResourceStats:
     max_active: int = 0
     cleanup_count: int = 0
     error_count: int = 0
-    last_cleanup: Optional[datetime] = None
+    last_cleanup: datetime | None = None
 
 
 class ResourceManager(Generic[T]):
@@ -59,10 +57,10 @@ class ResourceManager(Generic[T]):
         self.cleanup_interval = cleanup_interval
         self.max_idle_time = max_idle_time
 
-        self._resources: Dict[str, T] = {}
-        self._resource_metadata: Dict[str, Dict[str, Any]] = {}
+        self._resources: dict[str, T] = {}
+        self._resource_metadata: dict[str, dict[str, Any]] = {}
         self._stats = ResourceStats()
-        self._cleanup_task: Optional[asyncio.Task] = None
+        self._cleanup_task: asyncio.Task | None = None
         self._lock = asyncio.Lock()
 
     async def start(self) -> None:
@@ -111,9 +109,7 @@ class ResourceManager(Generic[T]):
             # Create new resource
             try:
                 resource = (
-                    factory()
-                    if not asyncio.iscoroutinefunction(factory)
-                    else await factory()
+                    factory() if not asyncio.iscoroutinefunction(factory) else await factory()
                 )
                 self._resources[key] = resource
                 self._resource_metadata[key] = {
@@ -124,9 +120,7 @@ class ResourceManager(Generic[T]):
 
                 self._stats.created_count += 1
                 self._stats.active_count += 1
-                self._stats.max_active = max(
-                    self._stats.max_active, self._stats.active_count
-                )
+                self._stats.max_active = max(self._stats.max_active, self._stats.active_count)
 
                 logger.debug(f"Created resource '{key}' in manager '{self.name}'")
                 return resource
@@ -172,9 +166,7 @@ class ResourceManager(Generic[T]):
                 self._stats.cleanup_count += 1
 
             if expired_keys:
-                logger.info(
-                    f"Cleaned up {len(expired_keys)} expired resources in '{self.name}'"
-                )
+                logger.info(f"Cleaned up {len(expired_keys)} expired resources in '{self.name}'")
 
             self._stats.last_cleanup = current_time
 
@@ -230,7 +222,7 @@ class ResourceManager(Generic[T]):
         except Exception as e:
             logger.warning(f"Error cleaning up resource: {e}")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get resource manager statistics."""
         return {
             "name": self.name,
@@ -255,14 +247,12 @@ class FileManager:
         """Initialize file manager."""
         self.max_files = max_files
         self.max_age_hours = max_age_hours
-        self._temp_files: Dict[str, Path] = {}
-        self._file_metadata: Dict[str, Dict[str, Any]] = {}
+        self._temp_files: dict[str, Path] = {}
+        self._file_metadata: dict[str, dict[str, Any]] = {}
         self._lock = asyncio.Lock()
 
     @asynccontextmanager
-    async def temporary_file(
-        self, suffix: str = ".tmp", prefix: str = "automation_"
-    ) -> Path:
+    async def temporary_file(self, suffix: str = ".tmp", prefix: str = "automation_") -> Path:
         """Create a temporary file with automatic cleanup."""
         temp_file = None
         file_id = None
@@ -327,7 +317,7 @@ class FileManager:
             if old_files:
                 logger.info(f"Cleaned up {len(old_files)} old temporary files")
 
-    async def get_file_stats(self) -> Dict[str, Any]:
+    async def get_file_stats(self) -> dict[str, Any]:
         """Get file manager statistics."""
         async with self._lock:
             total_size = 0
@@ -353,13 +343,11 @@ class HTTPSessionManager:
     def __init__(self, max_sessions: int = 10):
         """Initialize HTTP session manager."""
         self.max_sessions = max_sessions
-        self._sessions: Dict[str, aiohttp.ClientSession] = {}
-        self._session_metadata: Dict[str, Dict[str, Any]] = {}
+        self._sessions: dict[str, aiohttp.ClientSession] = {}
+        self._session_metadata: dict[str, dict[str, Any]] = {}
         self._lock = asyncio.Lock()
 
-    async def get_session(
-        self, key: str = "default", **session_kwargs
-    ) -> aiohttp.ClientSession:
+    async def get_session(self, key: str = "default", **session_kwargs) -> aiohttp.ClientSession:
         """Get or create an HTTP session."""
         async with self._lock:
             if key in self._sessions:
@@ -384,9 +372,7 @@ class HTTPSessionManager:
 
             timeout = aiohttp.ClientTimeout(total=30, connect=10)
 
-            session = aiohttp.ClientSession(
-                connector=connector, timeout=timeout, **session_kwargs
-            )
+            session = aiohttp.ClientSession(connector=connector, timeout=timeout, **session_kwargs)
 
             self._sessions[key] = session
             self._session_metadata[key] = {
@@ -422,7 +408,7 @@ class HTTPSessionManager:
             if count > 0:
                 logger.info(f"Closed all {count} HTTP sessions")
 
-    def get_session_stats(self) -> Dict[str, Any]:
+    def get_session_stats(self) -> dict[str, Any]:
         """Get HTTP session statistics."""
         active_sessions = sum(1 for s in self._sessions.values() if not s.closed)
 
@@ -438,9 +424,7 @@ class HTTPSessionManager:
                     "last_used": meta.get("last_used", "").isoformat()
                     if meta.get("last_used")
                     else "",
-                    "closed": self._sessions[key].closed
-                    if key in self._sessions
-                    else True,
+                    "closed": self._sessions[key].closed if key in self._sessions else True,
                 }
                 for key, meta in self._session_metadata.items()
             },
@@ -455,7 +439,7 @@ class MemoryManager:
         self.gc_threshold_mb = gc_threshold_mb
         self._objects_tracked = 0
 
-    async def force_garbage_collection(self) -> Dict[str, int]:
+    async def force_garbage_collection(self) -> dict[str, int]:
         """Force garbage collection and return statistics."""
         logger.debug("Forcing garbage collection")
 
@@ -478,9 +462,7 @@ class MemoryManager:
             "gc_stats": gc.get_stats(),
         }
 
-        logger.info(
-            f"GC collected {total_collected} objects, RSS: {stats['memory_rss_mb']:.1f}MB"
-        )
+        logger.info(f"GC collected {total_collected} objects, RSS: {stats['memory_rss_mb']:.1f}MB")
         return stats
 
     async def check_memory_pressure(self) -> bool:
@@ -530,7 +512,7 @@ async def cleanup_resources() -> None:
     await memory_manager.force_garbage_collection()
 
 
-async def get_resource_stats() -> Dict[str, Any]:
+async def get_resource_stats() -> dict[str, Any]:
     """Get statistics for all resource managers."""
     return {
         "files": await file_manager.get_file_stats(),

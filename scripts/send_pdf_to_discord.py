@@ -15,9 +15,7 @@ import requests
 
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -51,7 +49,7 @@ class DiscordWebhookSender:
             logger.error(f"PDF file not found: {pdf_path}")
             return False
 
-        if not pdf_file.suffix.lower() == ".pdf":
+        if pdf_file.suffix.lower() != ".pdf":
             logger.error(f"File is not a PDF: {pdf_path}")
             return False
 
@@ -60,9 +58,7 @@ class DiscordWebhookSender:
         max_size = 25 * 1024 * 1024  # 25MB in bytes
 
         if file_size > max_size:
-            logger.error(
-                f"PDF file too large: {file_size / (1024 * 1024):.1f}MB (max 25MB)"
-            )
+            logger.error(f"PDF file too large: {file_size / (1024 * 1024):.1f}MB (max 25MB)")
             return False
 
         try:
@@ -99,17 +95,13 @@ class DiscordWebhookSender:
 
                 data = {"payload_json": json.dumps(payload)}
 
-                response = self.session.post(
-                    self.webhook_url, data=data, files=files, timeout=30
-                )
+                response = self.session.post(self.webhook_url, data=data, files=files, timeout=30)
 
             if response.status_code == 204:
                 logger.info(f"Successfully sent {pdf_file.name} to Discord")
                 return True
             else:
-                logger.error(
-                    f"Discord webhook failed: {response.status_code} - {response.text}"
-                )
+                logger.error(f"Discord webhook failed: {response.status_code} - {response.text}")
                 return False
 
         except requests.exceptions.RequestException as e:
@@ -164,9 +156,7 @@ class DiscordWebhookSender:
             except Exception as e:
                 logger.error(f"Error processing {pdf_path}: {e}")
                 results["failed"] += 1
-                results["details"].append(
-                    {"file": pdf_path, "status": "error", "error": str(e)}
-                )
+                results["details"].append({"file": pdf_path, "status": "error", "error": str(e)})
 
         logger.info(
             f"Batch complete: {results['successful']} successful, {results['failed']} failed"
@@ -209,15 +199,11 @@ def send_notification(webhook_url, title, message, color=0x3498DB):
 
 def main():
     """Main CLI function."""
-    parser = argparse.ArgumentParser(
-        description="Send PDF files to Discord via webhook"
-    )
+    parser = argparse.ArgumentParser(description="Send PDF files to Discord via webhook")
     parser.add_argument("input", nargs="+", help="PDF file(s) or directory to send")
     parser.add_argument("--webhook", required=True, help="Discord webhook URL")
     parser.add_argument("--message", help="Custom message to send with PDF(s)")
-    parser.add_argument(
-        "--username", default="PDF Bot", help="Bot username (default: PDF Bot)"
-    )
+    parser.add_argument("--username", default="PDF Bot", help="Bot username (default: PDF Bot)")
     parser.add_argument("--avatar", help="Avatar URL for the bot")
     parser.add_argument(
         "--pattern",
@@ -242,9 +228,7 @@ def main():
     if args.notify_only:
         # Send notification only
         title = "🔄 PDF Processing Complete"
-        message = (
-            args.message or "PDF generation and processing completed successfully."
-        )
+        message = args.message or "PDF generation and processing completed successfully."
         success = send_notification(args.webhook, title, message)
         if success:
             print("Notification sent successfully")
@@ -278,9 +262,7 @@ def main():
     # Send PDFs
     if len(pdf_files) == 1:
         # Send single PDF
-        success = sender.send_pdf(
-            pdf_files[0], args.message, args.username, args.avatar
-        )
+        success = sender.send_pdf(pdf_files[0], args.message, args.username, args.avatar)
         if success:
             print(f"Successfully sent {Path(pdf_files[0]).name}")
         else:
@@ -288,9 +270,7 @@ def main():
             sys.exit(1)
     else:
         # Send multiple PDFs
-        batch_message = (
-            args.message or f"📚 Publishing {len(pdf_files)} new idea sheets"
-        )
+        batch_message = args.message or f"📚 Publishing {len(pdf_files)} new idea sheets"
         results = sender.send_multiple_pdfs(pdf_files, batch_message)
 
         print(f"Batch results: {results['successful']}/{results['total']} successful")

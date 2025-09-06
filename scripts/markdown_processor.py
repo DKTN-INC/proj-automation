@@ -12,7 +12,6 @@ import datetime
 import os
 import re
 import sys
-from typing import Dict, Optional
 
 import markdown
 import weasyprint
@@ -38,11 +37,9 @@ except ImportError:
 class MarkdownProcessor:
     """Main class for processing markdown files with enhanced features."""
 
-    def __init__(self, template_dir: Optional[str] = None):
+    def __init__(self, template_dir: str | None = None):
         """Initialize the processor with optional template directory."""
-        self.template_dir = template_dir or os.path.join(
-            os.path.dirname(__file__), "templates"
-        )
+        self.template_dir = template_dir or os.path.join(os.path.dirname(__file__), "templates")
         self.setup_jinja_env()
 
     def setup_jinja_env(self):
@@ -181,9 +178,7 @@ class MarkdownProcessor:
         words = re.findall(r"\b\w+\b", clean_text)
         return len(words)
 
-    def process_markdown_to_html(
-        self, markdown_content: str, file_path: Optional[str] = None
-    ) -> Dict:
+    def process_markdown_to_html(self, markdown_content: str, file_path: str | None = None) -> dict:
         """Process markdown content to HTML with TOC and summary."""
         try:
             # Setup markdown processor with extensions
@@ -253,7 +248,7 @@ class MarkdownProcessor:
 
     def process_file(
         self, input_path: str, output_dir: str, template_name: str = "default.html"
-    ) -> Dict:
+    ) -> dict:
         """Process a single markdown file."""
         try:
             # Validate input file
@@ -320,7 +315,7 @@ class MarkdownProcessor:
         output_dir: str,
         template_name: str = "default.html",
         send_to_discord: bool = True,
-    ) -> Dict:
+    ) -> dict:
         """
         Process a single markdown file and optionally send PDF to Discord.
 
@@ -358,9 +353,7 @@ class MarkdownProcessor:
                     if discord_success:
                         print(f"✅ PDF sent to Discord: {result['pdf_output']}")
                     else:
-                        print(
-                            f"⚠️  Failed to send PDF to Discord: {result['pdf_output']}"
-                        )
+                        print(f"⚠️  Failed to send PDF to Discord: {result['pdf_output']}")
                 except Exception as e:
                     print(f"⚠️  Error sending to Discord: {e}")
                     result["discord_sent"] = False
@@ -390,12 +383,8 @@ def main():
         help="HTML template name (default: default.html)",
     )
     parser.add_argument("--template-dir", help="Custom template directory")
-    parser.add_argument(
-        "--pdf-only", action="store_true", help="Generate only PDF output"
-    )
-    parser.add_argument(
-        "--html-only", action="store_true", help="Generate only HTML output"
-    )
+    parser.add_argument("--pdf-only", action="store_true", help="Generate only PDF output")
+    parser.add_argument("--html-only", action="store_true", help="Generate only HTML output")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
     parser.add_argument(
         "--discord",
@@ -437,7 +426,7 @@ def sync_main(args):
     elif os.path.isdir(args.input):
         # Directory
         markdown_files = []
-        for root, dirs, files in os.walk(args.input):
+        for root, _dirs, files in os.walk(args.input):
             for file in files:
                 if file.lower().endswith(".md"):
                     markdown_files.append(os.path.join(root, file))
@@ -454,9 +443,7 @@ def sync_main(args):
                 if args.verbose:
                     print(f"✅ Processed: {md_file}")
             else:
-                print(
-                    f"❌ Error processing {md_file}: {result['error']}", file=sys.stderr
-                )
+                print(f"❌ Error processing {md_file}: {result['error']}", file=sys.stderr)
 
         print(f"Processed {successful}/{len(markdown_files)} files successfully")
 
@@ -473,9 +460,7 @@ async def async_main(args):
     # Process input
     if os.path.isfile(args.input):
         # Single file
-        result = await processor.process_file_with_discord(
-            args.input, args.output, args.template
-        )
+        result = await processor.process_file_with_discord(args.input, args.output, args.template)
         if result["success"]:
             print(f"✅ Processed: {args.input}")
             print(f"   Title: {result['title']}")
@@ -496,7 +481,7 @@ async def async_main(args):
     elif os.path.isdir(args.input):
         # Directory
         markdown_files = []
-        for root, dirs, files in os.walk(args.input):
+        for root, _dirs, files in os.walk(args.input):
             for file in files:
                 if file.lower().endswith(".md"):
                     markdown_files.append(os.path.join(root, file))
@@ -508,9 +493,7 @@ async def async_main(args):
         successful = 0
         discord_sent = 0
         for md_file in markdown_files:
-            result = await processor.process_file_with_discord(
-                md_file, args.output, args.template
-            )
+            result = await processor.process_file_with_discord(md_file, args.output, args.template)
             if result["success"]:
                 successful += 1
                 if result.get("discord_sent"):
@@ -520,9 +503,7 @@ async def async_main(args):
                     if result.get("discord_sent"):
                         print("   📤 Sent to Discord: ✅")
             else:
-                print(
-                    f"❌ Error processing {md_file}: {result['error']}", file=sys.stderr
-                )
+                print(f"❌ Error processing {md_file}: {result['error']}", file=sys.stderr)
 
         print(f"Processed {successful}/{len(markdown_files)} files successfully")
         print(f"Sent {discord_sent} PDFs to Discord")

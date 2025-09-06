@@ -14,9 +14,7 @@ import pdfkit
 
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -240,9 +238,7 @@ def convert_directory(input_dir, output_dir=None, pattern="*.md"):
     md_files = list(input_path.glob(pattern))
 
     if not md_files:
-        logger.warning(
-            f"No markdown files found in {input_dir} matching pattern {pattern}"
-        )
+        logger.warning(f"No markdown files found in {input_dir} matching pattern {pattern}")
         return []
 
     pdf_files = []

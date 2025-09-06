@@ -92,9 +92,7 @@ async def demo_ai_features():
         print("   2. Set OPENAI_API_KEY environment variable")
 
         # Test fallback tagging
-        content = (
-            "This is a Python automation script for Discord bots with AI integration"
-        )
+        content = "This is a Python automation script for Discord bots with AI integration"
         tags = ai_helper._fallback_tags(content)
         print(f"📋 Fallback tags generated: {tags}")
 
@@ -130,9 +128,7 @@ async def main():
         print("\n" + "=" * 50)
         print("✅ All demos completed successfully!")
         print("\n📚 For full documentation, see: docs/bot-integration.md")
-        print(
-            "🔧 To run the bot, configure tokens in bot/.env and run: python bot/main.py"
-        )
+        print("🔧 To run the bot, configure tokens in bot/.env and run: python bot/main.py")
 
     except Exception as e:
         print(f"\n❌ Demo failed: {e}")

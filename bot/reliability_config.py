@@ -8,7 +8,7 @@ Centralized configuration for reliability settings across the automation platfor
 import logging
 import os
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any
 
 
 logger = logging.getLogger(__name__)
@@ -97,13 +97,9 @@ class ReliabilityConfig:
             memory_threshold_mb=int(os.getenv("HEALTH_MEMORY_THRESHOLD_MB", "500")),
             cpu_threshold_percent=float(os.getenv("HEALTH_CPU_THRESHOLD", "85.0")),
             disk_threshold_percent=float(os.getenv("HEALTH_DISK_THRESHOLD", "85.0")),
-            file_handles_threshold=int(
-                os.getenv("HEALTH_FILE_HANDLES_THRESHOLD", "200")
-            ),
+            file_handles_threshold=int(os.getenv("HEALTH_FILE_HANDLES_THRESHOLD", "200")),
             enable_alerts=os.getenv("HEALTH_ENABLE_ALERTS", "true").lower() == "true",
-            alert_cooldown_minutes=int(
-                os.getenv("HEALTH_ALERT_COOLDOWN_MINUTES", "15")
-            ),
+            alert_cooldown_minutes=int(os.getenv("HEALTH_ALERT_COOLDOWN_MINUTES", "15")),
         )
 
     def _load_resource_manager_config(self) -> ResourceManagerConfig:
@@ -133,12 +129,10 @@ class ReliabilityConfig:
             openai_requests_per_minute=int(os.getenv("RATE_LIMIT_OPENAI_RPM", "60")),
             github_requests_per_hour=int(os.getenv("RATE_LIMIT_GITHUB_RPH", "5000")),
             discord_commands_per_minute=int(os.getenv("RATE_LIMIT_DISCORD_CPM", "30")),
-            web_search_requests_per_minute=int(
-                os.getenv("RATE_LIMIT_WEB_SEARCH_RPM", "10")
-            ),
+            web_search_requests_per_minute=int(os.getenv("RATE_LIMIT_WEB_SEARCH_RPM", "10")),
         )
 
-    def get_config_dict(self) -> Dict[str, Any]:
+    def get_config_dict(self) -> dict[str, Any]:
         """Get configuration as dictionary."""
         return {
             "circuit_breaker": {

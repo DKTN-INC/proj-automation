@@ -9,7 +9,7 @@ import asyncio
 import json
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import aiohttp
 
@@ -55,11 +55,9 @@ class OpenAIWrapper:
         self.enable_circuit_breaker = enable_circuit_breaker
 
         # Legacy compatibility
-        self.session: Optional[aiohttp.ClientSession] = None
+        self.session: aiohttp.ClientSession | None = None
         self._last_request_time = 0
-        self._min_request_interval = (
-            60.0 / rate_limit_requests_per_minute
-        )  # Dynamic based on RPM
+        self._min_request_interval = 60.0 / rate_limit_requests_per_minute  # Dynamic based on RPM
 
         # Rate limiting
         self._request_count = 0
@@ -150,8 +148,8 @@ class OpenAIWrapper:
         self._request_count += 1
 
     async def _make_request_internal(
-        self, endpoint: str, data: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
+        self, endpoint: str, data: dict[str, Any]
+    ) -> dict[str, Any] | None:
         """Internal method to make HTTP request."""
         await self._ensure_session()
         await self._rate_limit()
@@ -170,28 +168,20 @@ class OpenAIWrapper:
                 logger.warning(f"OpenAI rate limited: {response_text}")
                 raise aiohttp.ClientError(f"Rate limited: {response_text}")
             elif response.status >= 500:  # Server error
-                logger.warning(
-                    f"OpenAI server error {response.status}: {response_text}"
-                )
-                raise aiohttp.ClientError(
-                    f"Server error {response.status}: {response_text}"
-                )
+                logger.warning(f"OpenAI server error {response.status}: {response_text}")
+                raise aiohttp.ClientError(f"Server error {response.status}: {response_text}")
             else:
                 self._stats["failed_requests"] += 1
                 logger.error(f"OpenAI API error {response.status}: {response_text}")
-                raise aiohttp.ClientError(
-                    f"API error {response.status}: {response_text}"
-                )
+                raise aiohttp.ClientError(f"API error {response.status}: {response_text}")
 
     async def _make_request(
-        self, endpoint: str, data: Dict[str, Any], retries: int = 3
-    ) -> Optional[Dict[str, Any]]:
+        self, endpoint: str, data: dict[str, Any], retries: int = 3
+    ) -> dict[str, Any] | None:
         """Make an async HTTP request to OpenAI API with circuit breaker and retries."""
         if self._circuit_breaker:
             try:
-                return await self._circuit_breaker.call(
-                    self._make_request_internal, endpoint, data
-                )
+                return await self._circuit_breaker.call(self._make_request_internal, endpoint, data)
             except CircuitBreakerError:
                 self._stats["circuit_breaker_trips"] += 1
                 logger.error("OpenAI API circuit breaker is open")
@@ -204,26 +194,22 @@ class OpenAIWrapper:
                 except Exception as e:
                     if attempt == retries - 1:
                         self._stats["failed_requests"] += 1
-                        logger.error(
-                            f"OpenAI request failed after {retries} attempts: {e}"
-                        )
+                        logger.error(f"OpenAI request failed after {retries} attempts: {e}")
                         return None
                     else:
                         wait_time = min(2**attempt, 10)
-                        logger.warning(
-                            f"OpenAI request failed, retrying in {wait_time}s: {e}"
-                        )
+                        logger.warning(f"OpenAI request failed, retrying in {wait_time}s: {e}")
                         await asyncio.sleep(wait_time)
 
         return None
 
     async def chat_completion(
         self,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         model: str = "gpt-3.5-turbo",
         max_tokens: int = 500,
         temperature: float = 0.7,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Generate a chat completion using OpenAI API.
 
@@ -250,7 +236,7 @@ class OpenAIWrapper:
 
         return None
 
-    async def summarize_text(self, text: str, max_length: int = 200) -> Optional[str]:
+    async def summarize_text(self, text: str, max_length: int = 200) -> str | None:
         """
         Summarize the given text using OpenAI.
 
@@ -277,7 +263,7 @@ class OpenAIWrapper:
 
         return await self.chat_completion(messages, max_tokens=max_length // 3)
 
-    async def answer_question(self, question: str, context: str = "") -> Optional[str]:
+    async def answer_question(self, question: str, context: str = "") -> str | None:
         """
         Answer a question using OpenAI, optionally with context.
 
@@ -307,7 +293,7 @@ class OpenAIWrapper:
 
         return await self.chat_completion(messages, max_tokens=400)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get OpenAI wrapper statistics."""
         return {
             "total_requests": self._stats["total_requests"],
@@ -317,15 +303,14 @@ class OpenAIWrapper:
             "rate_limit_hits": self._stats["rate_limit_hits"],
             "success_rate": self._stats["successful_requests"]
             / max(1, self._stats["total_requests"]),
-            "failure_rate": self._stats["failed_requests"]
-            / max(1, self._stats["total_requests"]),
+            "failure_rate": self._stats["failed_requests"] / max(1, self._stats["total_requests"]),
             "circuit_breaker_enabled": self.enable_circuit_breaker,
             "rate_limit_rpm": self.rate_limit_rpm,
             "timeout": self.timeout,
             "max_retries": self.max_retries,
         }
 
-    async def get_health_status(self) -> Dict[str, Any]:
+    async def get_health_status(self) -> dict[str, Any]:
         """Get health status of OpenAI wrapper."""
         stats = self.get_stats()
 

@@ -14,27 +14,24 @@ Includes:
 All components are designed to degrade gracefully when optional dependencies are missing.
 """
 
+import hashlib
+import json
 import os
 import re
-import json
-import ast
-import hashlib
-import sqlite3
 import tempfile
-import asyncio
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Tuple
-from datetime import datetime
+from typing import Any
 
 import aiosqlite
+
 
 # Optional dependencies and availability flags
 # OCR
 try:
-    import pytesseract
-    from PIL import Image  # noqa: F401 (imported for completeness; used by pytesseract)
     import cv2
     import numpy as np  # noqa: F401 (used in advanced pipelines if added)
+    import pytesseract
+    from PIL import Image  # noqa: F401 (imported for completeness; used by pytesseract)
 
     OCR_AVAILABLE = True
 except ImportError:
@@ -77,6 +74,7 @@ except ImportError:
 import markdown
 from jinja2 import Template
 
+
 try:
     import pdfkit
 
@@ -107,7 +105,7 @@ class MessageChunker:
 
     def chunk_text(
         self, text: str, preserve_words: bool = True, preserve_lines: bool = True
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Split text into chunks that fit Discord's limits.
 
@@ -122,7 +120,7 @@ class MessageChunker:
         if len(text) <= self.max_length:
             return [text]
 
-        chunks: List[str] = []
+        chunks: list[str] = []
         remaining = text
 
         while remaining:
@@ -130,9 +128,7 @@ class MessageChunker:
                 chunks.append(remaining)
                 break
 
-            split_point = self._find_split_point(
-                remaining, preserve_words, preserve_lines
-            )
+            split_point = self._find_split_point(remaining, preserve_words, preserve_lines)
 
             chunk = remaining[:split_point].rstrip()
             if chunk:
@@ -142,9 +138,7 @@ class MessageChunker:
 
         return chunks
 
-    def _find_split_point(
-        self, text: str, preserve_words: bool, preserve_lines: bool
-    ) -> int:
+    def _find_split_point(self, text: str, preserve_words: bool, preserve_lines: bool) -> int:
         """Find the best point to split text."""
         max_pos = min(len(text), self.max_length)
 
@@ -166,17 +160,17 @@ class MessageChunker:
         # Fallback to hard split
         return max_pos
 
-    def chunk_for_embed_description(self, text: str) -> List[str]:
+    def chunk_for_embed_description(self, text: str) -> list[str]:
         """Split text for Discord embed descriptions."""
         chunker = MessageChunker(self.MAX_EMBED_DESCRIPTION_LENGTH)
         return chunker.chunk_text(text)
 
-    def chunk_for_embed_field(self, text: str) -> List[str]:
+    def chunk_for_embed_field(self, text: str) -> list[str]:
         """Split text for Discord embed field values."""
         chunker = MessageChunker(self.MAX_EMBED_FIELD_VALUE_LENGTH)
         return chunker.chunk_text(text)
 
-    def chunk_markdown_safely(self, text: str) -> List[str]:
+    def chunk_markdown_safely(self, text: str) -> list[str]:
         """
         Split markdown text while trying to preserve formatting.
 
@@ -188,7 +182,7 @@ class MessageChunker:
         """
         sections = self._split_by_markdown_sections(text)
 
-        chunks: List[str] = []
+        chunks: list[str] = []
         current_chunk = ""
 
         for section in sections:
@@ -212,7 +206,7 @@ class MessageChunker:
 
         return [chunk for chunk in chunks if chunk.strip()]
 
-    def _split_by_markdown_sections(self, text: str) -> List[str]:
+    def _split_by_markdown_sections(self, text: str) -> list[str]:
         """Split text by markdown sections (headers, code blocks, etc.)."""
         patterns = [
             r"^```[\s\S]*?^```",  # Code blocks
@@ -228,7 +222,7 @@ class MessageChunker:
         if not matches:
             return text.split("\n\n")
 
-        sections: List[str] = []
+        sections: list[str] = []
         last_end = 0
 
         for match in matches:
@@ -247,9 +241,7 @@ class MessageChunker:
         return sections
 
     @staticmethod
-    def add_chunk_indicators(
-        chunks: List[str], total_pages: Optional[int] = None
-    ) -> List[str]:
+    def add_chunk_indicators(chunks: list[str], total_pages: int | None = None) -> list[str]:
         """
         Add page indicators to chunks.
 
@@ -264,7 +256,7 @@ class MessageChunker:
             return chunks
 
         total = total_pages or len(chunks)
-        result: List[str] = []
+        result: list[str] = []
 
         for i, chunk in enumerate(chunks, 1):
             indicator = f"📄 Page {i}/{total}\n\n"
@@ -272,18 +264,14 @@ class MessageChunker:
                 result.append(indicator + chunk)
             else:
                 indicator_tail = f"\n\n📄 Page {i}/{total}"
-                max_content_length = MessageChunker.MAX_MESSAGE_LENGTH - len(
-                    indicator_tail
-                )
+                max_content_length = MessageChunker.MAX_MESSAGE_LENGTH - len(indicator_tail)
                 truncated_chunk = chunk[:max_content_length].rstrip()
                 result.append(truncated_chunk + indicator_tail)
 
         return result
 
     @staticmethod
-    def truncate_with_ellipsis(
-        text: str, max_length: int, ellipsis: str = "..."
-    ) -> str:
+    def truncate_with_ellipsis(text: str, max_length: int, ellipsis: str = "...") -> str:
         """
         Truncate text to max_length, adding ellipsis if truncated.
         """
@@ -324,15 +312,13 @@ class ConversationMemory:
             await db.commit()
 
     async def store_conversation(
-        self, user_id: int, message: str, response: str, context: Optional[Dict] = None
+        self, user_id: int, message: str, response: str, context: dict | None = None
     ):
         """Store a conversation in the database."""
         context_hash = None
         if context:
             try:
-                context_hash = hashlib.md5(
-                    json.dumps(context, sort_keys=True).encode()
-                ).hexdigest()
+                context_hash = hashlib.md5(json.dumps(context, sort_keys=True).encode()).hexdigest()
             except Exception:
                 context_hash = None
 
@@ -343,9 +329,7 @@ class ConversationMemory:
             )
             await db.commit()
 
-    async def get_conversation_history(
-        self, user_id: int, limit: int = 10
-    ) -> List[Dict[str, Any]]:
+    async def get_conversation_history(self, user_id: int, limit: int = 10) -> list[dict[str, Any]]:
         """Get conversation history for a user."""
         async with aiosqlite.connect(self.db_path) as db:
             cursor = await db.execute(
@@ -353,10 +337,7 @@ class ConversationMemory:
                 (user_id, limit),
             )
             rows = await cursor.fetchall()
-            return [
-                {"message": row[0], "response": row[1], "timestamp": row[2]}
-                for row in rows
-            ]
+            return [{"message": row[0], "response": row[1], "timestamp": row[2]} for row in rows]
 
 
 # -----------------------------------------------------------------------------
@@ -373,7 +354,7 @@ class AIHelper:
         else:
             self.available = False
 
-    async def generate_tags(self, content: str) -> List[str]:
+    async def generate_tags(self, content: str) -> list[str]:
         """Generate tags for markdown content using AI."""
         if not self.available:
             return self._fallback_tags(content)
@@ -393,13 +374,11 @@ class AIHelper:
                 temperature=0.3,
             )
             tags_text = response.choices[0].message.content.strip()
-            return [
-                tag.strip().lstrip("#") for tag in tags_text.split(",") if tag.strip()
-            ]
+            return [tag.strip().lstrip("#") for tag in tags_text.split(",") if tag.strip()]
         except Exception:
             return self._fallback_tags(content)
 
-    def _fallback_tags(self, content: str) -> List[str]:
+    def _fallback_tags(self, content: str) -> list[str]:
         """Fallback tag generation without AI."""
         keywords = [
             "python",
@@ -412,7 +391,7 @@ class AIHelper:
             "ml",
             "data",
         ]
-        found_tags: List[str] = []
+        found_tags: list[str] = []
         content_lower = content.lower()
 
         for keyword in keywords:
@@ -488,9 +467,7 @@ class FileProcessor:
             if image is None:
                 return "OCR failed: could not read image"
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            processed = cv2.threshold(
-                gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
-            )[1]
+            processed = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
             text = pytesseract.image_to_string(processed)
             return text.strip()
         except Exception as e:
@@ -514,14 +491,9 @@ class FileProcessor:
         """Detect programming language from code snippet."""
         if any(p in code for p in ["def ", "import ", "from ", "print(", "__init__"]):
             return "python"
-        if any(
-            p in code for p in ["function ", "var ", "let ", "const ", "console.log"]
-        ):
+        if any(p in code for p in ["function ", "var ", "let ", "const ", "console.log"]):
             return "javascript"
-        if any(
-            p in code
-            for p in ["public class ", "public static void main", "import java"]
-        ):
+        if any(p in code for p in ["public class ", "public static void main", "import java"]):
             return "java"
         if any(p in code for p in ["#include ", "int main(", "std::", "cout"]):
             return "cpp"
@@ -602,7 +574,7 @@ class CodeAnalyzer:
     """Analyzes code for issues and suggestions."""
 
     @staticmethod
-    async def lint_python_code(code: str) -> List[str]:
+    async def lint_python_code(code: str) -> list[str]:
         """Lint Python code using flake8."""
         try:
             with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
@@ -623,7 +595,7 @@ class CodeAnalyzer:
             if result.returncode == 0:
                 return ["✅ No linting issues found!"]
             else:
-                issues: List[str] = []
+                issues: list[str] = []
                 for line in result.stdout.splitlines():
                     if line.strip():
                         parts = line.split(":", 3)
@@ -668,23 +640,21 @@ class GitHubHelper:
 
         try:
             repo = self.github.get_repo(repo_name)
-            pr = repo.create_pull(
-                title=title, body=body, head=head_branch, base=base_branch
-            )
+            pr = repo.create_pull(title=title, body=body, head=head_branch, base=base_branch)
             return f"✅ Pull request created: {pr.html_url}"
         except Exception as e:
             return f"❌ Failed to create PR: {str(e)}"
 
     async def get_issues(
         self, repo_name: str, state: str = "open", limit: int = 5
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get GitHub issues for a repository."""
         if not self.available or not self.github:
             return []
         try:
             repo = self.github.get_repo(repo_name)
             issues = repo.get_issues(state=state)
-            result: List[Dict[str, Any]] = []
+            result: list[dict[str, Any]] = []
             for i, issue in enumerate(issues):
                 if i >= limit:
                     break
@@ -709,7 +679,7 @@ class WebSearchHelper:
     """Helper for web search functionality."""
 
     @staticmethod
-    async def google_search(query: str, limit: int = 3) -> List[Dict[str, Any]]:
+    async def google_search(query: str, limit: int = 3) -> list[dict[str, Any]]:
         """Perform a basic web search via DuckDuckGo's HTML results."""
         if not WEB_AVAILABLE:
             return [
@@ -736,15 +706,13 @@ class WebSearchHelper:
                     html = await response.text()
                     soup = BeautifulSoup(html, "html.parser")
 
-                    results: List[Dict[str, Any]] = []
+                    results: list[dict[str, Any]] = []
                     for link in soup.find_all("a", {"class": "result__a"})[:limit]:
                         title = link.get_text().strip()
                         href = link.get("href")
                         if title and href:
                             results.append({"title": title, "url": href, "snippet": ""})
-                    return results or [
-                        {"title": "No results", "url": "", "snippet": ""}
-                    ]
+                    return results or [{"title": "No results", "url": "", "snippet": ""}]
         except Exception:
             return [
                 {
@@ -758,9 +726,7 @@ class WebSearchHelper:
 # -----------------------------------------------------------------------------
 # Global instances
 # -----------------------------------------------------------------------------
-memory = ConversationMemory(
-    getattr(config, "db_path", Path("bot/conversation_memory.db"))
-)
+memory = ConversationMemory(getattr(config, "db_path", Path("bot/conversation_memory.db")))
 ai_helper = AIHelper()
 file_processor = FileProcessor()
 code_analyzer = CodeAnalyzer()

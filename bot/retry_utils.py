@@ -9,10 +9,11 @@ import asyncio
 import logging
 import random
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from functools import wraps
-from typing import Any, Callable, Optional, Tuple, Type, TypeVar
+from typing import Any, TypeVar
 
 
 try:
@@ -42,9 +43,9 @@ class RetryAttempt:
 
     attempt: int
     delay: float
-    exception: Optional[Exception] = None
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
+    exception: Exception | None = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
     success: bool = False
 
 
@@ -70,7 +71,7 @@ class ExponentialBackoffStrategy(RetryStrategy):
         exponential_base: float = None,
         jitter: bool = None,
         max_retries: int = None,
-        retryable_exceptions: Tuple[Type[Exception], ...] = (Exception,),
+        retryable_exceptions: tuple[type[Exception], ...] = (Exception,),
     ):
         """Initialize exponential backoff strategy."""
         self.base_delay = base_delay or RETRY_CONFIG.base_delay
@@ -110,7 +111,7 @@ class LinearBackoffStrategy(RetryStrategy):
         increment: float = 1.0,
         jitter: bool = None,
         max_retries: int = None,
-        retryable_exceptions: Tuple[Type[Exception], ...] = (Exception,),
+        retryable_exceptions: tuple[type[Exception], ...] = (Exception,),
     ):
         """Initialize linear backoff strategy."""
         self.base_delay = base_delay or RETRY_CONFIG.base_delay
@@ -147,7 +148,7 @@ class FixedDelayStrategy(RetryStrategy):
         delay: float = None,
         jitter: bool = None,
         max_retries: int = None,
-        retryable_exceptions: Tuple[Type[Exception], ...] = (Exception,),
+        retryable_exceptions: tuple[type[Exception], ...] = (Exception,),
     ):
         """Initialize fixed delay strategy."""
         self.delay = delay or RETRY_CONFIG.base_delay
@@ -176,7 +177,7 @@ class FixedDelayStrategy(RetryStrategy):
 class RetryHandler:
     """Handles retry logic with configurable strategies."""
 
-    def __init__(self, strategy: Optional[RetryStrategy] = None):
+    def __init__(self, strategy: RetryStrategy | None = None):
         """Initialize retry handler with strategy."""
         self.strategy = strategy or ExponentialBackoffStrategy()
         self.attempts: list[RetryAttempt] = []
@@ -251,9 +252,7 @@ class RetryHandler:
                     )
 
                     logger.error(f"Function failed after {attempt} attempts: {e}")
-                    raise RetryError(
-                        f"Function failed after {attempt} attempts: {e}"
-                    ) from e
+                    raise RetryError(f"Function failed after {attempt} attempts: {e}") from e
 
     def execute_sync(self, func: Callable[..., T], *args, **kwargs) -> T:
         """Execute sync function with retry logic."""
@@ -320,9 +319,7 @@ class RetryHandler:
                     )
 
                     logger.error(f"Function failed after {attempt} attempts: {e}")
-                    raise RetryError(
-                        f"Function failed after {attempt} attempts: {e}"
-                    ) from e
+                    raise RetryError(f"Function failed after {attempt} attempts: {e}") from e
 
     def get_stats(self) -> dict[str, Any]:
         """Get retry statistics."""
@@ -345,23 +342,19 @@ class RetryHandler:
             "total_attempts": total_attempts,
             "successful_attempts": successful_attempts,
             "failed_attempts": failed_attempts,
-            "success_rate": successful_attempts / total_attempts
-            if total_attempts > 0
-            else 0,
+            "success_rate": successful_attempts / total_attempts if total_attempts > 0 else 0,
             "total_execution_time": total_time,
             "total_delay_time": total_delay,
-            "average_attempt_time": total_time / total_attempts
-            if total_attempts > 0
-            else 0,
+            "average_attempt_time": total_time / total_attempts if total_attempts > 0 else 0,
         }
 
 
 def retry_async(
-    strategy: Optional[RetryStrategy] = None,
-    max_retries: Optional[int] = None,
-    base_delay: Optional[float] = None,
-    max_delay: Optional[float] = None,
-    retryable_exceptions: Optional[Tuple[Type[Exception], ...]] = None,
+    strategy: RetryStrategy | None = None,
+    max_retries: int | None = None,
+    base_delay: float | None = None,
+    max_delay: float | None = None,
+    retryable_exceptions: tuple[type[Exception], ...] | None = None,
 ):
     """Decorator for async functions with retry logic."""
 
@@ -387,11 +380,11 @@ def retry_async(
 
 
 def retry_sync(
-    strategy: Optional[RetryStrategy] = None,
-    max_retries: Optional[int] = None,
-    base_delay: Optional[float] = None,
-    max_delay: Optional[float] = None,
-    retryable_exceptions: Optional[Tuple[Type[Exception], ...]] = None,
+    strategy: RetryStrategy | None = None,
+    max_retries: int | None = None,
+    base_delay: float | None = None,
+    max_delay: float | None = None,
+    retryable_exceptions: tuple[type[Exception], ...] | None = None,
 ):
     """Decorator for sync functions with retry logic."""
 
@@ -418,7 +411,7 @@ def retry_sync(
 
 # Convenience functions
 async def retry_async_call(
-    func: Callable[..., T], *args, strategy: Optional[RetryStrategy] = None, **kwargs
+    func: Callable[..., T], *args, strategy: RetryStrategy | None = None, **kwargs
 ) -> T:
     """Execute async function with retry logic."""
     handler = RetryHandler(strategy or ExponentialBackoffStrategy())
@@ -426,7 +419,7 @@ async def retry_async_call(
 
 
 def retry_sync_call(
-    func: Callable[..., T], *args, strategy: Optional[RetryStrategy] = None, **kwargs
+    func: Callable[..., T], *args, strategy: RetryStrategy | None = None, **kwargs
 ) -> T:
     """Execute sync function with retry logic."""
     handler = RetryHandler(strategy or ExponentialBackoffStrategy())
