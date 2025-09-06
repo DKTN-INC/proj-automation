@@ -23,13 +23,13 @@ import datetime
 
 # Import currency formatting and async Discord webhook
 try:
-    from .currency_formatter import CurrencyFormatter, format_gbp
-    from .async_discord_webhook import send_pdf_if_webhook_configured
+    from currency_formatter import CurrencyFormatter, format_gbp
+    from async_discord_webhook import send_pdf_if_webhook_configured
 except ImportError:
-    # Fallback for direct execution
+    # Fallback for package-relative imports
     try:
-        from currency_formatter import CurrencyFormatter, format_gbp
-        from async_discord_webhook import send_pdf_if_webhook_configured
+        from .currency_formatter import CurrencyFormatter, format_gbp
+        from .async_discord_webhook import send_pdf_if_webhook_configured
     except ImportError:
         # Graceful fallback if modules not available
         CurrencyFormatter = None
