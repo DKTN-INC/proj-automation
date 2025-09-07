@@ -22,9 +22,7 @@ logger = logging.getLogger(__name__)
 class AsyncDiscordWebhook:
     """Async Discord webhook client using aiohttp."""
 
-    def __init__(
-        self, webhook_url: str, session: Optional[aiohttp.ClientSession] = None
-    ):
+    def __init__(self, webhook_url: str, session: Optional[aiohttp.ClientSession] = None):
         """
         Initialize async Discord webhook client.
 
@@ -47,13 +45,7 @@ class AsyncDiscordWebhook:
         if self._should_close_session and self.session:
             await self.session.close()
 
-    async def send_message(
-        self,
-        content: str,
-        username: str = "Bot",
-        avatar_url: Optional[str] = None,
-        embeds: Optional[List[Dict]] = None,
-    ) -> bool:
+    async def send_message(self, content: str, username: str = "Bot", avatar_url: Optional[str] = None, embeds: Optional[List[Dict]] = None) -> bool:
         """
         Send a text message to Discord.
 
@@ -75,16 +67,12 @@ class AsyncDiscordWebhook:
             payload["embeds"] = embeds
 
         try:
-            async with self.session.post(
-                self.webhook_url, json=payload, timeout=aiohttp.ClientTimeout(total=30)
-            ) as response:
+            async with self.session.post(self.webhook_url, json=payload, timeout=aiohttp.ClientTimeout(total=30)) as response:
                 if response.status == 204:
                     logger.info("Successfully sent message to Discord")
                     return True
                 else:
-                    logger.error(
-                        f"Discord webhook failed: {response.status} - {await response.text()}"
-                    )
+                    logger.error(f"Discord webhook failed: {response.status} - {await response.text()}")
                     return False
 
         except asyncio.TimeoutError:
@@ -94,13 +82,7 @@ class AsyncDiscordWebhook:
             logger.error(f"Error sending message to Discord: {e}")
             return False
 
-    async def send_pdf(
-        self,
-        pdf_path: str,
-        message: Optional[str] = None,
-        username: str = "PDF Bot",
-        avatar_url: Optional[str] = None,
-    ) -> bool:
+    async def send_pdf(self, pdf_path: str, message: Optional[str] = None, username: str = "PDF Bot", avatar_url: Optional[str] = None) -> bool:
         """
         Send a PDF file to Discord via webhook.
 
@@ -119,7 +101,7 @@ class AsyncDiscordWebhook:
             logger.error(f"PDF file not found: {pdf_path}")
             return False
 
-        if not pdf_file.suffix.lower() == ".pdf":
+        if pdf_file.suffix.lower() != ".pdf":
             logger.error(f"File is not a PDF: {pdf_path}")
             return False
 
@@ -127,9 +109,7 @@ class AsyncDiscordWebhook:
         max_size = 25 * 1024 * 1024  # 25MB Discord limit
 
         if file_size > max_size:
-            logger.error(
-                f"PDF file too large: {file_size / (1024 * 1024):.1f}MB (max 25MB)"
-            )
+            logger.error(f"PDF file too large: {file_size / (1024 * 1024):.1f}MB (max 25MB)")
             return False
 
         try:
@@ -182,9 +162,7 @@ class AsyncDiscordWebhook:
                         logger.info(f"Successfully sent {pdf_file.name} to Discord")
                         return True
                     else:
-                        logger.error(
-                            f"Discord webhook failed: {response.status} - {await response.text()}"
-                        )
+                        logger.error(f"Discord webhook failed: {response.status} - {await response.text()}")
                         return False
 
         except asyncio.TimeoutError:
@@ -194,12 +172,7 @@ class AsyncDiscordWebhook:
             logger.error(f"Error sending PDF to Discord: {e}")
             return False
 
-    async def send_multiple_pdfs(
-        self,
-        pdf_paths: List[str],
-        batch_message: Optional[str] = None,
-        username: str = "PDF Bot",
-    ) -> Dict[str, bool]:
+    async def send_multiple_pdfs(self, pdf_paths: List[str], batch_message: Optional[str] = None, username: str = "PDF Bot") -> Dict[str, bool]:
         """
         Send multiple PDF files to Discord.
 
@@ -224,9 +197,7 @@ class AsyncDiscordWebhook:
         return results
 
 
-async def send_notification(
-    webhook_url: str, title: str, message: str, color: int = 0x3498DB
-) -> bool:
+async def send_notification(webhook_url: str, title: str, message: str, color: int = 0x3498DB) -> bool:
     """
     Send a notification embed to Discord.
 
@@ -251,9 +222,7 @@ async def send_notification(
         return await webhook.send_message("", embeds=[embed])
 
 
-async def post_pdf_to_discord(
-    webhook_url: str, pdf_path: str, message: Optional[str] = None
-) -> bool:
+async def post_pdf_to_discord(webhook_url: str, pdf_path: str, message: Optional[str] = None) -> bool:
     """
     Convenience function to post a PDF to Discord.
 
@@ -274,10 +243,7 @@ def get_webhook_url_from_env() -> Optional[str]:
     """Get Discord webhook URL from environment variables."""
     return os.getenv("DISCORD_WEBHOOK_URL")
 
-
-async def send_pdf_if_webhook_configured(
-    pdf_path: str, message: Optional[str] = None
-) -> bool:
+async def send_pdf_if_webhook_configured(pdf_path: str, message: Optional[str] = None) -> bool:
     """
     Send PDF to Discord if webhook URL is configured in environment.
 
