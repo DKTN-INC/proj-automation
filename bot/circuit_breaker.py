@@ -121,7 +121,7 @@ class CircuitBreaker:
             await self._on_success()
             return result
 
-        except TimeoutError as err:
+        except asyncio.TimeoutError as err:
             logger.warning(f"Circuit breaker '{self.name}' operation timed out")
             await self._on_failure(CircuitBreakerTimeoutError("Operation timed out"))
             raise CircuitBreakerTimeoutError("Operation timed out") from err
