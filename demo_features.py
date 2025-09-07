@@ -7,14 +7,16 @@ This script demonstrates the functionality that would be used in Discord slash c
 
 import sys
 from pathlib import Path
-from decimal import Decimal
+
 
 # Add bot directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent / "bot"))
 
 from features import (
-    summarize_budget, categorize_spend, BudgetSummary,
-    generate_campaign_brief, render_campaign_brief_markdown, CampaignBrief
+    categorize_spend,
+    generate_campaign_brief,
+    render_campaign_brief_markdown,
+    summarize_budget,
 )
 
 
@@ -31,11 +33,11 @@ def demo_budget_features():
         {'amount': 125.25},
         {'amount': 89.99}
     ]
-    
+
     # Test budget summary
     budget_limit = 1200.0
     summary = summarize_budget(transactions, budget_limit)
-    
+
     print(f"Budget Limit: ${budget_limit:,.2f}")
     print(f"Total Spent: ${summary.totals}")
     print(f"Remaining: ${summary.remaining}")
@@ -52,9 +54,9 @@ def demo_budget_features():
         {'category': 'Software', 'amount': 125.25},
         {'category': 'Travel', 'amount': 75.00}
     ]
-    
+
     categories = categorize_spend(spending_items)
-    
+
     print("SPENDING BY CATEGORY:")
     print("-" * 30)
     for category, amount in sorted(categories.items()):
@@ -105,7 +107,7 @@ def demo_marketing_features():
 
     # Render as markdown
     markdown = render_campaign_brief_markdown(brief)
-    
+
     print("CAMPAIGN BRIEF MARKDOWN OUTPUT:")
     print("-" * 40)
     print(markdown)
@@ -116,20 +118,20 @@ def main():
     print("🚀 Bot Features Demo")
     print("Demonstrating budget and marketing functionality for Discord bot commands")
     print()
-    
+
     try:
         demo_budget_features()
         demo_marketing_features()
-        
+
         print("=" * 60)
         print("✅ All features working correctly!")
         print("These functions are ready for integration with Discord slash commands.")
         print("=" * 60)
-        
+
     except Exception as e:
         print(f"❌ Error during demo: {e}")
         return 1
-    
+
     return 0
 
 

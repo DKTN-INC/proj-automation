@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Structured Logging Configuration
-Provides structured logging with JSON format and context-aware logging for the Discord bot.
+Provides structured logging with JSON format and context-aware logging
+for the Discord bot.
 """
 
 import json

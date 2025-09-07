@@ -126,10 +126,10 @@ class CircuitBreaker:
             await self._on_success()
             return result
 
-        except TimeoutError:
+        except TimeoutError as e:
             logger.warning(f"Circuit breaker '{self.name}' operation timed out")
             await self._on_failure(CircuitBreakerTimeoutError("Operation timed out"))
-            raise CircuitBreakerTimeoutError("Operation timed out")
+            raise CircuitBreakerTimeoutError("Operation timed out") from e
 
         except self.config.expected_exceptions as e:
             logger.warning(
@@ -151,7 +151,8 @@ class CircuitBreaker:
             self.stats.success_count += 1
             self.stats.last_success_time = datetime.now()
 
-            if self.stats.state == CircuitState.HALF_OPEN and self.stats.success_count >= self.config.success_threshold:
+            if (self.stats.state == CircuitState.HALF_OPEN and 
+                self.stats.success_count >= self.config.success_threshold):
                 self._transition_to_closed()
 
     async def _on_failure(self, exception: Exception) -> None:

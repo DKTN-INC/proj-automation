@@ -148,7 +148,10 @@ class HealthMonitor:
                 status=status,
                 value=usage_percent,
                 threshold=80.0,
-                message=f"{usage_percent:.1f}% used ({memory.used / 1024**3:.1f}GB / {memory.total / 1024**3:.1f}GB)",
+                message=(
+                    f"{usage_percent:.1f}% used ({memory.used / 1024**3:.1f}GB / "
+                    f"{memory.total / 1024**3:.1f}GB)"
+                ),
             )
         except Exception as e:
             self.metrics["memory_usage"] = HealthMetric(
@@ -175,7 +178,10 @@ class HealthMonitor:
                 status=status,
                 value=usage_percent,
                 threshold=85.0,
-                message=f"{usage_percent:.1f}% used ({usage.used / 1024**3:.1f}GB / {usage.total / 1024**3:.1f}GB)",
+                message=(
+                    f"{usage_percent:.1f}% used ({usage.used / 1024**3:.1f}GB / "
+                    f"{usage.total / 1024**3:.1f}GB)"
+                ),
             )
         except Exception as e:
             self.metrics["disk_usage"] = HealthMetric(

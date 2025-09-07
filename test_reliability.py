@@ -25,7 +25,6 @@ try:
         HTTPSessionManager,
         MemoryManager,
         cleanup_resources,
-        get_http_session,
         temporary_file,
     )
     from retry_utils import (
@@ -214,7 +213,7 @@ class ReliabilityTester:
         """Test resource management functionality."""
         try:
             # Test file manager
-            file_manager = FileManager(max_files=5, max_age_hours=1)
+            FileManager(max_files=5, max_age_hours=1)
 
             # Test temporary file creation and cleanup
             async with temporary_file(

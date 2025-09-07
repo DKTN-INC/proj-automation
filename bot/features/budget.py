@@ -5,8 +5,8 @@ Provides functionality to summarize budgets and categorize spending.
 """
 
 from dataclasses import dataclass
-from typing import List, Dict, Any, Union
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Any, Dict, List, Union
 
 
 @dataclass

@@ -6,19 +6,20 @@ Provides /ask and /summarize commands for team collaboration.
 Full-featured bot with AI integration, file processing, and automation.
 """
 
-import os
 import asyncio
 import logging
+import os
 import signal
 import tempfile
-from pathlib import Path
 from datetime import datetime, timedelta
-from typing import Optional, List, Callable, Any, Dict, Tuple
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import aiofiles
 import discord
-from discord.ext import commands
 from discord import app_commands
+from discord.ext import commands
+
 
 # -----------------------------------------------------------------------------
 # Imports from our package with fallbacks for direct execution
@@ -28,45 +29,53 @@ try:
         config,
     )  # config object with directories, tokens, validation, etc.
     from .utils import (
-        memory,
         ai_helper,
-        file_processor,
         code_analyzer,
+        file_processor,
         github_helper,
+        memory,
         web_search,
     )
 except ImportError:
     from config import config  # type: ignore
     from utils import (  # type: ignore
-        memory,
         ai_helper,
-        file_processor,
         code_analyzer,
+        file_processor,
         github_helper,
+        memory,
         web_search,
     )
 
 # Optional advanced modules (structured logging, cooldowns, OpenAI wrapper, thread pool)
 try:
-    from .logging_config import setup_logging, log_command_execution, log_bot_event  # type: ignore
+    from .circuit_breaker import circuit_manager
     from .health_monitor import (
         health_monitor,
+        register_health_check,
         start_health_monitoring,
         stop_health_monitoring,
-        register_health_check,
     )
-    from .circuit_breaker import circuit_manager
+    from .logging_config import (  # type: ignore
+        log_bot_event,
+        log_command_execution,
+        setup_logging,
+    )
     from .resource_manager import cleanup_resources, get_resource_stats
 except Exception:
     try:
-        from logging_config import setup_logging, log_command_execution, log_bot_event  # type: ignore
+        from circuit_breaker import circuit_manager
         from health_monitor import (
             health_monitor,
+            register_health_check,
             start_health_monitoring,
             stop_health_monitoring,
-            register_health_check,
         )
-        from circuit_breaker import circuit_manager
+        from logging_config import (  # type: ignore
+            log_bot_event,
+            log_command_execution,
+            setup_logging,
+        )
         from resource_manager import cleanup_resources, get_resource_stats
     except Exception:
         # Fallbacks
@@ -128,13 +137,17 @@ except Exception:
         OpenAIWrapper = None  # type: ignore
 
 try:
-    from .thread_pool import thread_pool, parse_discord_messages, shutdown_thread_pool  # type: ignore
+    from .thread_pool import (  # type: ignore
+        parse_discord_messages,
+        shutdown_thread_pool,
+        thread_pool,
+    )
 except Exception:
     try:
         from thread_pool import (
-            thread_pool,
             parse_discord_messages,
             shutdown_thread_pool,
+            thread_pool,
         )  # type: ignore
     except Exception:
         thread_pool = None  # type: ignore
@@ -790,7 +803,7 @@ async def get_doc_command(
         output_dir.mkdir(parents=True, exist_ok=True)
 
         if format == "markdown" or found_file.suffix == ".md":
-            async with aiofiles.open(found_file, "r", encoding="utf-8") as f:
+            async with aiofiles.open(found_file, encoding="utf-8") as f:
                 content = await f.read()
 
             if len(content) > 1900:
@@ -808,7 +821,7 @@ async def get_doc_command(
 
         elif format == "html":
             if found_file.suffix == ".md":
-                async with aiofiles.open(found_file, "r", encoding="utf-8") as f:
+                async with aiofiles.open(found_file, encoding="utf-8") as f:
                     md_content = await f.read()
 
                 html_content = await file_processor.markdown_to_html(
@@ -830,7 +843,7 @@ async def get_doc_command(
 
         elif format == "pdf":
             if found_file.suffix == ".md":
-                async with aiofiles.open(found_file, "r", encoding="utf-8") as f:
+                async with aiofiles.open(found_file, encoding="utf-8") as f:
                     md_content = await f.read()
 
                 html_content = await file_processor.markdown_to_html(
@@ -1416,7 +1429,7 @@ def main():
     # Startup info
     try:
         logger.info("Starting Discord bot...")
-        logger.info(f"Features available:")
+        logger.info("Features available:")
         logger.info(
             f"  - AI Integration: {'✅' if getattr(ai_helper, 'available', False) else '❌'}"
         )

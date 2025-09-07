@@ -5,8 +5,8 @@ Provides functionality to generate campaign briefs and render them as Markdown.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional
 from datetime import datetime
+from typing import List, Optional
 
 
 @dataclass

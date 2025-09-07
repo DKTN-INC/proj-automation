@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Cooldown Manager
-Implements per-user cooldowns for Discord slash commands to prevent spam and rate limiting.
+Implements per-user cooldowns for Discord slash commands to prevent spam
+and rate limiting.
 """
 
 import asyncio
@@ -126,7 +127,8 @@ class CooldownManager:
         self._cooldowns[command][user_id] = next_allowed_time
 
         logger.debug(
-            f"Added cooldown for user {user_id} on command '{command}' for {cooldown_seconds}s"
+            f"Added cooldown for user {user_id} on command '{command}' "
+            f"for {cooldown_seconds}s"
         )
 
     def reset_cooldown(self, user_id: int, command: str):
@@ -189,7 +191,7 @@ class CooldownManager:
             "commands_with_cooldowns": 0,
         }
 
-        for command, users in self._cooldowns.items():
+        for _command, users in self._cooldowns.items():
             active_users = sum(
                 1 for next_time in users.values() if next_time > current_time
             )
@@ -232,7 +234,8 @@ class CooldownDecorator:
                 time_str = f"{minutes}m {seconds}s" if minutes > 0 else f"{seconds}s"
 
                 await interaction.response.send_message(
-                    f"⏰ You're on cooldown! Please wait {time_str} before using this command again.",
+                    f"⏰ You're on cooldown! Please wait {time_str} "
+                    f"before using this command again.",
                     ephemeral=True,
                 )
                 return
