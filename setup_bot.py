@@ -6,7 +6,7 @@ Helps configure environment variables and validate the setup.
 
 import os
 import sys
-
+from pathlib import Path
 
 def main():
     """Main setup function."""
@@ -14,7 +14,7 @@ def main():
     print("=" * 40)
 
     # Check if we're in the right directory
-    if not os.path.exists("bot/main.py"):
+    if not Path("bot/main.py").exists():
         print("❌ Please run this script from the repository root directory")
         sys.exit(1)
 
@@ -107,29 +107,29 @@ def main():
     # Generate .env template
     print("\n📝 Environment Template:")
     print("Create a .env file with these variables:")
-    print()
+    print()  
     print("# Required")
     print("DISCORD_BOT_TOKEN=your_discord_bot_token_here")
-    print()
+    print()  
     print("# Optional - AI Features")
     print("OPENAI_API_KEY=your_openai_api_key_here")
-    print()
+    print()  
     print("# Optional - Logging")
     print("LOG_LEVEL=INFO")
     print("STRUCTURED_LOGS=false")
     print("LOG_FILE=bot.log")
-    print()
+    print()  
 
     # Show usage
     print("\n🚀 Usage:")
     print("1. Install dependencies: pip install -r requirements.txt")
     print("2. Set environment variables (create .env file)")
     print("3. Run the bot: python bot/main.py")
-    print()
+    print()  
     print("For development:")
     print("  export LOG_LEVEL=DEBUG")
     print("  export STRUCTURED_LOGS=false")
-    print()
+    print()  
     print("For production:")
     print("  export LOG_LEVEL=INFO")
     print("  export STRUCTURED_LOGS=true")
