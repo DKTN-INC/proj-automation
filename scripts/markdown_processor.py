@@ -12,6 +12,7 @@ import datetime
 import os
 import re
 import sys
+from pathlib import Path
 from typing import Dict, Optional
 
 import markdown
@@ -40,21 +41,25 @@ class MarkdownProcessor:
 
     def __init__(self, template_dir: Optional[str] = None):
         """Initialize the processor with optional template directory."""
-        self.template_dir = template_dir or os.path.join(
-            os.path.dirname(__file__), "templates"
+        self.template_dir: Path = (
+            Path(template_dir) if template_dir else Path(__file__).parent / "templates"
         )
         self.setup_jinja_env()
 
     def setup_jinja_env(self):
         """Setup Jinja2 environment for HTML templating."""
         try:
-            if os.path.exists(self.template_dir):
-                self.jinja_env = Environment(loader=FileSystemLoader(self.template_dir))
+            if self.template_dir.exists():
+                self.jinja_env = Environment(
+                    loader=FileSystemLoader(str(self.template_dir))
+                )
             else:
                 # Create default templates directory
-                os.makedirs(self.template_dir, exist_ok=True)
+                self.template_dir.mkdir(parents=True, exist_ok=True)
                 self.create_default_templates()
-                self.jinja_env = Environment(loader=FileSystemLoader(self.template_dir))
+                self.jinja_env = Environment(
+                    loader=FileSystemLoader(str(self.template_dir))
+                )
         except Exception as e:
             print(f"Error setting up Jinja environment: {e}", file=sys.stderr)
             self.jinja_env = None
@@ -68,18 +73,18 @@ class MarkdownProcessor:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title or 'Document' }}</title>
     <style>
-        body { 
+        body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            max-width: 800px; 
-            margin: 0 auto; 
+            max-width: 800px;
+            margin: 0 auto;
             padding: 2rem;
             line-height: 1.6;
             color: #333;
         }
-        .toc { 
-            background: #f8f9fa; 
-            padding: 1rem; 
-            border-radius: 8px; 
+        .toc {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
             margin: 2rem 0;
             border-left: 4px solid #007bff;
         }
@@ -102,12 +107,12 @@ class MarkdownProcessor:
         table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
         th, td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; }
         th { background-color: #f8f9fa; font-weight: 600; }
-        .metadata { 
-            font-size: 0.9rem; 
-            color: #666; 
-            border-top: 1px solid #eee; 
-            padding-top: 1rem; 
-            margin-top: 2rem; 
+        .metadata {
+            font-size: 0.9rem;
+            color: #666;
+            border-top: 1px solid #eee;
+            padding-top: 1rem;
+            margin-top: 2rem;
         }
     </style>
 </head>
@@ -118,18 +123,18 @@ class MarkdownProcessor:
         <p>{{ summary }}</p>
     </div>
     {% endif %}
-    
+
     {% if toc %}
     <div class="toc">
         <h2>📚 Table of Contents</h2>
         {{ toc | safe }}
     </div>
     {% endif %}
-    
+
     <main>
         {{ content | safe }}
     </main>
-    
+
     {% if metadata %}
     <div class="metadata">
         <p><strong>Generated:</strong> {{ metadata.generated_at }}</p>
@@ -140,8 +145,8 @@ class MarkdownProcessor:
 </body>
 </html>"""
 
-        template_path = os.path.join(self.template_dir, "default.html")
-        with open(template_path, "w", encoding="utf-8") as f:
+        template_path = self.template_dir / "default.html"
+        with template_path.open("w", encoding="utf-8") as f:
             f.write(default_template)
 
     def extract_title(self, markdown_content: str) -> str:
@@ -234,18 +239,19 @@ class MarkdownProcessor:
             print(f"Error rendering template: {e}", file=sys.stderr)
             # Fallback to simple HTML
             return f"""<!DOCTYPE html>
-<html><head><title>{kwargs.get("title", "Document")}</title></head>
-<body>{kwargs.get("content", "")}</body></html>"""
+<html><head><title>{{kwargs.get("title", "Document")}}</title></head>
+<body>{{kwargs.get("content", "")}}</body></html>"""
 
     def convert_to_pdf(self, html_content: str, output_path: str) -> bool:
         """Convert HTML content to PDF."""
         try:
             # Create output directory if it doesn't exist
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            out_path = Path(output_path)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Convert HTML to PDF
             html_doc = weasyprint.HTML(string=html_content)
-            html_doc.write_pdf(output_path)
+            html_doc.write_pdf(str(out_path))
             return True
         except Exception as e:
             print(f"Error converting to PDF: {e}", file=sys.stderr)
@@ -256,53 +262,56 @@ class MarkdownProcessor:
     ) -> Dict:
         """Process a single markdown file."""
         try:
+            md_path = Path(input_path)
+
             # Validate input file
-            if not os.path.exists(input_path):
+            if not md_path.exists():
                 return {
                     "error": f"Input file not found: {input_path}",
                     "success": False,
                 }
 
-            if not input_path.lower().endswith(".md"):
+            if md_path.suffix.lower() != ".md":
                 return {
                     "error": f"Input file must be a markdown file: {input_path}",
                     "success": False,
                 }
 
             # Read markdown content
-            with open(input_path, encoding="utf-8") as f:
+            with md_path.open(encoding="utf-8") as f:
                 markdown_content = f.read()
 
             if not markdown_content.strip():
                 return {"error": f"Input file is empty: {input_path}", "success": False}
 
             # Process markdown
-            result = self.process_markdown_to_html(markdown_content, input_path)
+            result = self.process_markdown_to_html(markdown_content, str(md_path))
             if not result["success"]:
                 return result
 
             # Create output directory
-            os.makedirs(output_dir, exist_ok=True)
+            out_dir = Path(output_dir)
+            out_dir.mkdir(parents=True, exist_ok=True)
 
-            # Generate output filename
-            base_name = os.path.splitext(os.path.basename(input_path))[0]
-            html_output = os.path.join(output_dir, f"{base_name}.html")
-            pdf_output = os.path.join(output_dir, f"{base_name}.pdf")
+            # Generate output filenames
+            base_name = md_path.stem
+            html_output = out_dir / f"{base_name}.html"
+            pdf_output = out_dir / f"{base_name}.pdf"
 
             # Render HTML template
             html_content = self.render_template(template_name, **result)
 
             # Write HTML file
-            with open(html_output, "w", encoding="utf-8") as f:
+            with html_output.open("w", encoding="utf-8") as f:
                 f.write(html_content)
 
             # Convert to PDF
-            pdf_success = self.convert_to_pdf(html_content, pdf_output)
+            pdf_success = self.convert_to_pdf(html_content, str(pdf_output))
 
             return {
                 "success": True,
-                "html_output": html_output,
-                "pdf_output": pdf_output if pdf_success else None,
+                "html_output": str(html_output),
+                "pdf_output": str(pdf_output) if pdf_success else None,
                 "title": result["title"],
                 "summary": result["summary"],
                 "word_count": result["metadata"]["word_count"],
@@ -314,7 +323,7 @@ class MarkdownProcessor:
                 "success": False,
             }
 
-    async def process_file_with_discord(
+    def process_file_with_discord(
         self,
         input_path: str,
         output_dir: str,
@@ -417,10 +426,12 @@ def sync_main(args):
     # Initialize processor
     processor = MarkdownProcessor(template_dir=args.template_dir)
 
+    input_path = Path(args.input)
+
     # Process input
-    if os.path.isfile(args.input):
+    if input_path.is_file():
         # Single file
-        result = processor.process_file(args.input, args.output, args.template)
+        result = processor.process_file(str(input_path), args.output, args.template)
         if result["success"]:
             print(f"✅ Processed: {args.input}")
             print(f"   Title: {result['title']}")
@@ -434,13 +445,13 @@ def sync_main(args):
             print(f"❌ Error: {result['error']}", file=sys.stderr)
             sys.exit(1)
 
-    elif os.path.isdir(args.input):
+    elif input_path.is_dir():
         # Directory
         markdown_files = []
-        for root, dirs, files in os.walk(args.input):
+        for root, _, files in os.walk(args.input):
             for file in files:
                 if file.lower().endswith(".md"):
-                    markdown_files.append(os.path.join(root, file))
+                    markdown_files.append(str(Path(root) / file))
 
         if not markdown_files:
             print(f"No markdown files found in {args.input}", file=sys.stderr)
@@ -470,11 +481,13 @@ async def async_main(args):
     # Initialize processor
     processor = MarkdownProcessor(template_dir=args.template_dir)
 
+    input_path = Path(args.input)
+
     # Process input
-    if os.path.isfile(args.input):
+    if input_path.is_file():
         # Single file
         result = await processor.process_file_with_discord(
-            args.input, args.output, args.template
+            str(input_path), args.output, args.template
         )
         if result["success"]:
             print(f"✅ Processed: {args.input}")
@@ -493,13 +506,13 @@ async def async_main(args):
             print(f"❌ Error: {result['error']}", file=sys.stderr)
             sys.exit(1)
 
-    elif os.path.isdir(args.input):
+    elif input_path.is_dir():
         # Directory
         markdown_files = []
-        for root, dirs, files in os.walk(args.input):
+        for root, _, files in os.walk(args.input):
             for file in files:
                 if file.lower().endswith(".md"):
-                    markdown_files.append(os.path.join(root, file))
+                    markdown_files.append(str(Path(root) / file))
 
         if not markdown_files:
             print(f"No markdown files found in {args.input}", file=sys.stderr)
