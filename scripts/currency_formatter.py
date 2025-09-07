@@ -61,10 +61,7 @@ class CurrencyFormatter:
         """
         try:
             # Convert to Decimal for precise arithmetic
-            if isinstance(amount, str):
-                decimal_amount = Decimal(amount)
-            else:
-                decimal_amount = Decimal(str(amount))
+            decimal_amount = Decimal(amount) if isinstance(amount, str) else Decimal(str(amount))
 
             # Round to specified decimal places
             rounded_amount = round(decimal_amount, self.decimal_places)

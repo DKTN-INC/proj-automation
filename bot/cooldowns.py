@@ -229,10 +229,7 @@ class CooldownDecorator:
                 minutes = int(remaining // 60)
                 seconds = int(remaining % 60)
 
-                if minutes > 0:
-                    time_str = f"{minutes}m {seconds}s"
-                else:
-                    time_str = f"{seconds}s"
+                time_str = f"{minutes}m {seconds}s" if minutes > 0 else f"{seconds}s"
 
                 await interaction.response.send_message(
                     f"⏰ You're on cooldown! Please wait {time_str} before using this command again.",
