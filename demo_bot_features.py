@@ -21,8 +21,8 @@ async def demo_markdown_processing():
 
     test_markdown = """# AI-Powered Feature Demo
 
-**Author:** Demo User  
-**Created:** 2024-01-01  
+**Author:** Demo User
+**Created:** 2024-01-01
 **Tags:** demo, ai, discord-bot
 
 ---

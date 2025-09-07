@@ -10,7 +10,7 @@ import gc
 import logging
 import os
 import tempfile
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -77,10 +77,8 @@ class ResourceManager(Generic[T]):
         """Stop resource manager and cleanup all resources."""
         if self._cleanup_task:
             self._cleanup_task.cancel()
-            try:
+            with suppress(asyncio.CancelledError):
                 await self._cleanup_task
-            except asyncio.CancelledError:
-                pass
 
         await self.cleanup_all()
         logger.info(f"Stopped resource manager: {self.name}")
@@ -141,7 +139,7 @@ class ResourceManager(Generic[T]):
         async with self._lock:
             if key in self._resources:
                 resource = self._resources.pop(key)
-                metadata = self._resource_metadata.pop(key, {})
+                self._resource_metadata.pop(key, {})
 
                 await self._cleanup_resource(resource)
                 self._stats.active_count -= 1
@@ -239,9 +237,11 @@ class ResourceManager(Generic[T]):
             "created_count": self._stats.created_count,
             "cleanup_count": self._stats.cleanup_count,
             "error_count": self._stats.error_count,
-            "last_cleanup": self._stats.last_cleanup.isoformat()
-            if self._stats.last_cleanup
-            else None,
+            "last_cleanup": (
+                self._stats.last_cleanup.isoformat()
+                if self._stats.last_cleanup
+                else None
+            ),
             "max_resources": self.max_resources,
             "cleanup_interval": self.cleanup_interval,
             "max_idle_time": self.max_idle_time,
@@ -411,7 +411,7 @@ class HTTPSessionManager:
     async def close_all_sessions(self) -> None:
         """Close all HTTP sessions."""
         async with self._lock:
-            for key, session in self._sessions.items():
+            for _key, session in self._sessions.items():
                 if not session.closed:
                     await session.close()
 
@@ -432,15 +432,19 @@ class HTTPSessionManager:
             "max_sessions": self.max_sessions,
             "sessions": {
                 key: {
-                    "created_at": meta.get("created_at", "").isoformat()
-                    if meta.get("created_at")
-                    else "",
-                    "last_used": meta.get("last_used", "").isoformat()
-                    if meta.get("last_used")
-                    else "",
-                    "closed": self._sessions[key].closed
-                    if key in self._sessions
-                    else True,
+                    "created_at": (
+                        meta.get("created_at", "").isoformat()
+                        if meta.get("created_at")
+                        else ""
+                    ),
+                    "last_used": (
+                        meta.get("last_used", "").isoformat()
+                        if meta.get("last_used")
+                        else ""
+                    ),
+                    "closed": (
+                        self._sessions[key].closed if key in self._sessions else True
+                    ),
                 }
                 for key, meta in self._session_metadata.items()
             },

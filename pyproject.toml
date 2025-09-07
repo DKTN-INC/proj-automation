@@ -127,6 +127,27 @@ indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
 
+# Black configuration for consistency
+[tool.black]
+line-length = 88
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
 # MyPy configuration
 [tool.mypy]
 python_version = "3.8"

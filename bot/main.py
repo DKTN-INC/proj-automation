@@ -6,19 +6,21 @@ Provides /ask and /summarize commands for team collaboration.
 Full-featured bot with AI integration, file processing, and automation.
 """
 
-import os
 import asyncio
+import contextlib
 import logging
+import os
 import signal
 import tempfile
-from pathlib import Path
 from datetime import datetime, timedelta
-from typing import Optional, List, Callable, Any, Dict, Tuple
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import aiofiles
 import discord
-from discord.ext import commands
 from discord import app_commands
+from discord.ext import commands
+
 
 # -----------------------------------------------------------------------------
 # Imports from our package with fallbacks for direct execution
@@ -28,45 +30,53 @@ try:
         config,
     )  # config object with directories, tokens, validation, etc.
     from .utils import (
-        memory,
         ai_helper,
-        file_processor,
         code_analyzer,
+        file_processor,
         github_helper,
+        memory,
         web_search,
     )
 except ImportError:
     from config import config  # type: ignore
     from utils import (  # type: ignore
-        memory,
         ai_helper,
-        file_processor,
         code_analyzer,
+        file_processor,
         github_helper,
+        memory,
         web_search,
     )
 
 # Optional advanced modules (structured logging, cooldowns, OpenAI wrapper, thread pool)
 try:
-    from .logging_config import setup_logging, log_command_execution, log_bot_event  # type: ignore
+    from .circuit_breaker import circuit_manager
     from .health_monitor import (
         health_monitor,
+        register_health_check,
         start_health_monitoring,
         stop_health_monitoring,
-        register_health_check,
     )
-    from .circuit_breaker import circuit_manager
+    from .logging_config import (  # type: ignore
+        log_bot_event,
+        log_command_execution,
+        setup_logging,
+    )
     from .resource_manager import cleanup_resources, get_resource_stats
 except Exception:
     try:
-        from logging_config import setup_logging, log_command_execution, log_bot_event  # type: ignore
+        from circuit_breaker import circuit_manager
         from health_monitor import (
             health_monitor,
+            register_health_check,
             start_health_monitoring,
             stop_health_monitoring,
-            register_health_check,
         )
-        from circuit_breaker import circuit_manager
+        from logging_config import (  # type: ignore
+            log_bot_event,
+            log_command_execution,
+            setup_logging,
+        )
         from resource_manager import cleanup_resources, get_resource_stats
     except Exception:
         # Fallbacks
@@ -128,13 +138,17 @@ except Exception:
         OpenAIWrapper = None  # type: ignore
 
 try:
-    from .thread_pool import thread_pool, parse_discord_messages, shutdown_thread_pool  # type: ignore
+    from .thread_pool import (  # type: ignore
+        parse_discord_messages,
+        shutdown_thread_pool,
+        thread_pool,
+    )
 except Exception:
     try:
         from thread_pool import (
-            thread_pool,
             parse_discord_messages,
             shutdown_thread_pool,
+            thread_pool,
         )  # type: ignore
     except Exception:
         thread_pool = None  # type: ignore
@@ -469,8 +483,8 @@ async def handle_markdown_intake(message: discord.Message):
         md_title = title if title else "Untitled Idea"
         markdown_content = f"""# {md_title}
 
-**Author:** {user.display_name}  
-**Created:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}  
+**Author:** {user.display_name}
+**Created:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 **Tags:** {", ".join(tags)}
 
 ---
@@ -524,14 +538,12 @@ async def handle_markdown_intake(message: discord.Message):
             await message.reply(embed=embed)
 
         # Store in conversation memory
-        try:
+        with contextlib.suppress(Exception):
             await memory.store_conversation(
                 user.id,
                 f"Submitted idea sheet: {filename}",
                 f"Saved with tags: {', '.join(tags)}",
             )
-        except Exception:
-            pass
 
         logger.info(f"Idea sheet saved: {filename} by {user.display_name}")
 
@@ -547,10 +559,8 @@ async def handle_dm_conversation(message: discord.Message):
 
     try:
         history = []
-        try:
+        with contextlib.suppress(Exception):
             history = await memory.get_conversation_history(user.id, limit=5)
-        except Exception:
-            pass
 
         response = "Thanks for your message! I've noted it down. You can use `/submit-idea` to submit ideas, or send markdown directly."
         if history:
@@ -558,10 +568,8 @@ async def handle_dm_conversation(message: discord.Message):
 
         await message.reply(response)
 
-        try:
+        with contextlib.suppress(Exception):
             await memory.store_conversation(user.id, content, response)
-        except Exception:
-            pass
 
     except Exception as e:
         logger.error(f"DM conversation error: {e}")
@@ -610,9 +618,11 @@ async def analyze_code_in_message(message: discord.Message):
                     embed = discord.Embed(
                         title="🔍 Code Analysis Results",
                         description="\n".join(issues[:10]),
-                        color=0xE74C3C
-                        if any("❌" in issue for issue in issues)
-                        else 0xF39C12,
+                        color=(
+                            0xE74C3C
+                            if any("❌" in issue for issue in issues)
+                            else 0xF39C12
+                        ),
                     )
 
                     if getattr(ai_helper, "available", False):
@@ -669,8 +679,8 @@ async def submit_idea_command(
 
         markdown_content = f"""# {title}
 
-**Author:** {user.display_name}  
-**Created:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}  
+**Author:** {user.display_name}
+**Created:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 **Tags:** {", ".join(tag_list)}
 
 ---
@@ -716,14 +726,12 @@ async def submit_idea_command(
         else:
             await interaction.followup.send(embed=embed)
 
-        try:
+        with contextlib.suppress(Exception):
             await memory.store_conversation(
                 user.id,
                 f"Submitted idea: {title}",
                 f"Saved as {filename} with tags: {', '.join(tag_list)}",
             )
-        except Exception:
-            pass
 
         logger.info(
             f"Idea submitted via slash command: {filename} by {user.display_name}"
@@ -790,7 +798,7 @@ async def get_doc_command(
         output_dir.mkdir(parents=True, exist_ok=True)
 
         if format == "markdown" or found_file.suffix == ".md":
-            async with aiofiles.open(found_file, "r", encoding="utf-8") as f:
+            async with aiofiles.open(found_file, encoding="utf-8") as f:
                 content = await f.read()
 
             if len(content) > 1900:
@@ -808,7 +816,7 @@ async def get_doc_command(
 
         elif format == "html":
             if found_file.suffix == ".md":
-                async with aiofiles.open(found_file, "r", encoding="utf-8") as f:
+                async with aiofiles.open(found_file, encoding="utf-8") as f:
                     md_content = await f.read()
 
                 html_content = await file_processor.markdown_to_html(
@@ -830,7 +838,7 @@ async def get_doc_command(
 
         elif format == "pdf":
             if found_file.suffix == ".md":
-                async with aiofiles.open(found_file, "r", encoding="utf-8") as f:
+                async with aiofiles.open(found_file, encoding="utf-8") as f:
                     md_content = await f.read()
 
                 html_content = await file_processor.markdown_to_html(
@@ -870,9 +878,11 @@ async def ask_command(interaction: discord.Interaction, question: str):
     )
     embed.set_author(
         name=interaction.user.display_name,
-        icon_url=interaction.user.avatar.url
-        if getattr(interaction.user, "avatar", None)
-        else None,
+        icon_url=(
+            interaction.user.avatar.url
+            if getattr(interaction.user, "avatar", None)
+            else None
+        ),
     )
     embed.set_footer(text="Use this thread to discuss the question")
 
@@ -940,9 +950,9 @@ async def summarize_command(
                         "author": msg.author.display_name,
                         "content": msg.content,
                         "timestamp": msg.created_at,
-                        "reactions": sum(r.count for r in msg.reactions)
-                        if msg.reactions
-                        else 0,
+                        "reactions": (
+                            sum(r.count for r in msg.reactions) if msg.reactions else 0
+                        ),
                     }
                 )
 
@@ -1245,10 +1255,8 @@ async def on_command_error(ctx: commands.Context, error: Exception):
     logger.error(
         f"Command error in {getattr(ctx, 'command', None)}: {error}", exc_info=True
     )
-    try:
+    with contextlib.suppress(Exception):
         await ctx.send(f"❌ Command error: {str(error)}")
-    except Exception:
-        pass
 
 
 @bot.event
@@ -1258,12 +1266,10 @@ async def on_application_command_error(
     """Handle slash command errors."""
     logger.error(f"Slash command error: {error}", exc_info=True)
     if not interaction.response.is_done():
-        try:
+        with contextlib.suppress(Exception):
             await interaction.response.send_message(
                 f"❌ An error occurred: {str(error)}", ephemeral=True
             )
-        except Exception:
-            pass
 
 
 @bot.event
@@ -1388,10 +1394,8 @@ async def cleanup():
     except Exception:
         pass
 
-    try:
+    with contextlib.suppress(Exception):
         await shutdown_thread_pool()
-    except Exception:
-        pass
 
     logger.info("Cleanup completed")
 
@@ -1416,7 +1420,7 @@ def main():
     # Startup info
     try:
         logger.info("Starting Discord bot...")
-        logger.info(f"Features available:")
+        logger.info("Features available:")
         logger.info(
             f"  - AI Integration: {'✅' if getattr(ai_helper, 'available', False) else '❌'}"
         )
@@ -1458,10 +1462,8 @@ def main():
     except Exception as e:
         logger.error(f"Bot error: {e}", exc_info=True)
     finally:
-        try:
+        with contextlib.suppress(Exception):
             asyncio.run(cleanup())
-        except Exception:
-            pass
 
 
 if __name__ == "__main__":

@@ -129,7 +129,7 @@ class CircuitBreaker:
         except asyncio.TimeoutError:
             logger.warning(f"Circuit breaker '{self.name}' operation timed out")
             await self._on_failure(CircuitBreakerTimeoutError("Operation timed out"))
-            raise CircuitBreakerTimeoutError("Operation timed out")
+            raise CircuitBreakerTimeoutError("Operation timed out") from None
 
         except self.config.expected_exceptions as e:
             logger.warning(
@@ -151,9 +151,11 @@ class CircuitBreaker:
             self.stats.success_count += 1
             self.stats.last_success_time = datetime.now()
 
-            if self.stats.state == CircuitState.HALF_OPEN:
-                if self.stats.success_count >= self.config.success_threshold:
-                    self._transition_to_closed()
+            if (
+                self.stats.state == CircuitState.HALF_OPEN
+                and self.stats.success_count >= self.config.success_threshold
+            ):
+                self._transition_to_closed()
 
     async def _on_failure(self, exception: Exception) -> None:
         """Handle failed operation."""
@@ -210,12 +212,16 @@ class CircuitBreaker:
             "total_failures": self.stats.total_failures,
             "failure_rate": self.stats.total_failures
             / max(1, self.stats.total_requests),
-            "last_failure_time": self.stats.last_failure_time.isoformat()
-            if self.stats.last_failure_time
-            else None,
-            "last_success_time": self.stats.last_success_time.isoformat()
-            if self.stats.last_success_time
-            else None,
+            "last_failure_time": (
+                self.stats.last_failure_time.isoformat()
+                if self.stats.last_failure_time
+                else None
+            ),
+            "last_success_time": (
+                self.stats.last_success_time.isoformat()
+                if self.stats.last_success_time
+                else None
+            ),
             "state_changed_time": self.stats.state_changed_time.isoformat(),
             "config": {
                 "failure_threshold": self.config.failure_threshold,

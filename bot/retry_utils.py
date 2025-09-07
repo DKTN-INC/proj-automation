@@ -345,14 +345,14 @@ class RetryHandler:
             "total_attempts": total_attempts,
             "successful_attempts": successful_attempts,
             "failed_attempts": failed_attempts,
-            "success_rate": successful_attempts / total_attempts
-            if total_attempts > 0
-            else 0,
+            "success_rate": (
+                successful_attempts / total_attempts if total_attempts > 0 else 0
+            ),
             "total_execution_time": total_time,
             "total_delay_time": total_delay,
-            "average_attempt_time": total_time / total_attempts
-            if total_attempts > 0
-            else 0,
+            "average_attempt_time": (
+                total_time / total_attempts if total_attempts > 0 else 0
+            ),
         }
 
 
