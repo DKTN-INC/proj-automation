@@ -158,7 +158,6 @@ def markdown_to_html(md_content, title="Document"):
         title=title, content=html_content, timestamp=timestamp, source_file=title
     )
 
-
 def convert_md_to_pdf(md_file_path, output_dir=None, custom_options=None):
     """
     Convert a Markdown file to PDF.
@@ -177,7 +176,7 @@ def convert_md_to_pdf(md_file_path, output_dir=None, custom_options=None):
         raise FileNotFoundError(f"Markdown file not found: {md_file_path}")
 
     # Read markdown content
-    with open(md_path, encoding="utf-8") as f:
+    with md_path.open(encoding="utf-8") as f:
         md_content = f.read()
 
     # Determine output path
@@ -218,7 +217,6 @@ def convert_md_to_pdf(md_file_path, output_dir=None, custom_options=None):
         logger.error(f"Error converting {md_path.name} to PDF: {e}")
         raise
 
-
 def convert_directory(input_dir, output_dir=None, pattern="*.md"):
     """
     Convert all Markdown files in a directory to PDFs.
@@ -256,7 +254,6 @@ def convert_directory(input_dir, output_dir=None, pattern="*.md"):
 
     logger.info(f"Converted {len(pdf_files)} out of {len(md_files)} markdown files")
     return pdf_files
-
 
 def main():
     """Main CLI function."""
