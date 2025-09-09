@@ -5,13 +5,14 @@ Tests the budget summarization and spending categorization features.
 """
 
 import sys
-from pathlib import Path
 from decimal import Decimal
+from pathlib import Path
+
 
 # Add bot directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "bot"))
 
-from features.budget import summarize_budget, categorize_spend  # noqa: E402
+from features.budget import categorize_spend, summarize_budget  # noqa: E402
 
 
 def test_summarize_budget_empty_transactions():

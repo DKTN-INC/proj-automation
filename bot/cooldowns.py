@@ -60,7 +60,7 @@ class CooldownManager:
                     if not self._cooldowns[command]:
                         del self._cooldowns[command]
 
-            except Exception as e:
+            except (KeyError, RuntimeError) as e:
                 logger.error(f"Error in cooldown cleanup: {e}")
                 await asyncio.sleep(60)  # Wait before retrying
 
@@ -189,7 +189,7 @@ class CooldownManager:
             "commands_with_cooldowns": 0,
         }
 
-        for command, users in self._cooldowns.items():
+        for users in self._cooldowns.values():
             active_users = sum(
                 1 for next_time in users.values() if next_time > current_time
             )
@@ -229,10 +229,7 @@ class CooldownDecorator:
                 minutes = int(remaining // 60)
                 seconds = int(remaining % 60)
 
-                if minutes > 0:
-                    time_str = f"{minutes}m {seconds}s"
-                else:
-                    time_str = f"{seconds}s"
+                time_str = f"{minutes}m {seconds}s" if minutes > 0 else f"{seconds}s"
 
                 await interaction.response.send_message(
                     f"⏰ You're on cooldown! Please wait {time_str} before using this command again.",

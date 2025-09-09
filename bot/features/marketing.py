@@ -5,8 +5,8 @@ Provides functionality to generate campaign briefs and render them as Markdown.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional
 from datetime import datetime
+from typing import List, Optional
 
 
 @dataclass
@@ -82,8 +82,7 @@ def render_campaign_brief_markdown(brief: CampaignBrief) -> str:
     ]
 
     # Add objectives as bullet points
-    for objective in brief.objectives:
-        lines.append(f"- {objective}")
+    lines.extend([f"- {objective}" for objective in brief.objectives])
     lines.append("")
 
     # Add budget if provided
@@ -105,22 +104,19 @@ def render_campaign_brief_markdown(brief: CampaignBrief) -> str:
     # Add channels if provided
     if brief.channels:
         lines.extend(["## Marketing Channels"])
-        for channel in brief.channels:
-            lines.append(f"- {channel}")
+        lines.extend([f"- {channel}" for channel in brief.channels])
         lines.append("")
 
     # Add key messages if provided
     if brief.key_messages:
         lines.extend(["## Key Messages"])
-        for message in brief.key_messages:
-            lines.append(f"- {message}")
+        lines.extend([f"- {message}" for message in brief.key_messages])
         lines.append("")
 
     # Add success metrics if provided
     if brief.success_metrics:
         lines.extend(["## Success Metrics"])
-        for metric in brief.success_metrics:
-            lines.append(f"- {metric}")
+        lines.extend([f"- {metric}" for metric in brief.success_metrics])
         lines.append("")
 
     # Add creation timestamp

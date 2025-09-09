@@ -6,15 +6,20 @@ This script demonstrates the functionality that would be used in Discord slash c
 """
 
 import sys
-from pathlib import Path
 from decimal import Decimal
+from pathlib import Path
+
 
 # Add bot directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent / "bot"))
 
 from features import (
-    summarize_budget, categorize_spend, BudgetSummary,
-    generate_campaign_brief, render_campaign_brief_markdown, CampaignBrief
+    BudgetSummary,
+    CampaignBrief,
+    categorize_spend,
+    generate_campaign_brief,
+    render_campaign_brief_markdown,
+    summarize_budget,
 )
 
 
