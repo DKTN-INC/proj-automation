@@ -24,7 +24,7 @@ def test_generate_campaign_brief_minimal():
     brief = generate_campaign_brief(
         campaign_name="Test Campaign",
         target_audience="Young adults 18-25",
-        objectives=["Increase brand awareness", "Drive website traffic"]
+        objectives=["Increase brand awareness", "Drive website traffic"],
     )
 
     assert brief.campaign_name == "Test Campaign"
@@ -49,7 +49,7 @@ def test_generate_campaign_brief_full():
         timeline="June 1 - August 31, 2024",
         channels=["Email", "Social Media", "Google Ads"],
         key_messages=["Save 40% on summer items", "Limited time offer"],
-        success_metrics=["30% sales increase", "50% inventory clearance"]
+        success_metrics=["30% sales increase", "50% inventory clearance"],
     )
 
     assert brief.campaign_name == "Summer Sale Campaign"
@@ -68,7 +68,7 @@ def test_render_campaign_brief_markdown_minimal():
     brief = CampaignBrief(
         campaign_name="Basic Campaign",
         target_audience="General audience",
-        objectives=["Goal 1", "Goal 2"]
+        objectives=["Goal 1", "Goal 2"],
     )
 
     markdown = render_campaign_brief_markdown(brief)
@@ -89,7 +89,7 @@ def test_render_campaign_brief_markdown_with_budget():
         campaign_name="Budget Campaign",
         target_audience="Target group",
         objectives=["Objective 1"],
-        budget=12345.67
+        budget=12345.67,
     )
 
     markdown = render_campaign_brief_markdown(brief)
@@ -104,7 +104,7 @@ def test_render_campaign_brief_markdown_with_timeline():
         campaign_name="Timeline Campaign",
         target_audience="Target group",
         objectives=["Objective 1"],
-        timeline="Q1 2024"
+        timeline="Q1 2024",
     )
 
     markdown = render_campaign_brief_markdown(brief)
@@ -119,7 +119,7 @@ def test_render_campaign_brief_markdown_with_channels():
         campaign_name="Channels Campaign",
         target_audience="Target group",
         objectives=["Objective 1"],
-        channels=["Email", "Facebook", "Google Ads"]
+        channels=["Email", "Facebook", "Google Ads"],
     )
 
     markdown = render_campaign_brief_markdown(brief)
@@ -136,7 +136,7 @@ def test_render_campaign_brief_markdown_with_key_messages():
         campaign_name="Messages Campaign",
         target_audience="Target group",
         objectives=["Objective 1"],
-        key_messages=["Message 1", "Message 2"]
+        key_messages=["Message 1", "Message 2"],
     )
 
     markdown = render_campaign_brief_markdown(brief)
@@ -152,7 +152,7 @@ def test_render_campaign_brief_markdown_with_success_metrics():
         campaign_name="Metrics Campaign",
         target_audience="Target group",
         objectives=["Objective 1"],
-        success_metrics=["Metric 1", "Metric 2"]
+        success_metrics=["Metric 1", "Metric 2"],
     )
 
     markdown = render_campaign_brief_markdown(brief)
@@ -169,7 +169,7 @@ def test_render_campaign_brief_markdown_with_created_at():
         campaign_name="Timestamp Campaign",
         target_audience="Target group",
         objectives=["Objective 1"],
-        created_at=test_time
+        created_at=test_time,
     )
 
     markdown = render_campaign_brief_markdown(brief)
@@ -190,7 +190,7 @@ def test_render_campaign_brief_markdown_full():
         channels=["Channel A", "Channel B"],
         key_messages=["Message A", "Message B"],
         success_metrics=["Metric A", "Metric B"],
-        created_at=test_time
+        created_at=test_time,
     )
 
     markdown = render_campaign_brief_markdown(brief)
@@ -227,7 +227,7 @@ def test_render_campaign_brief_markdown_empty_lists():
         objectives=["Objective 1"],
         channels=[],
         key_messages=[],
-        success_metrics=[]
+        success_metrics=[],
     )
 
     markdown = render_campaign_brief_markdown(brief)
@@ -251,7 +251,7 @@ def run_all_tests():
         test_render_campaign_brief_markdown_with_success_metrics,
         test_render_campaign_brief_markdown_with_created_at,
         test_render_campaign_brief_markdown_full,
-        test_render_campaign_brief_markdown_empty_lists
+        test_render_campaign_brief_markdown_empty_lists,
     ]
 
     passed = 0
