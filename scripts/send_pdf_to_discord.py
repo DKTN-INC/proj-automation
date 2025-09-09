@@ -51,7 +51,7 @@ class DiscordWebhookSender:
             logger.error(f"PDF file not found: {pdf_path}")
             return False
 
-        if not pdf_file.suffix.lower() == ".pdf":
+        if pdf_file.suffix.lower() != ".pdf":
             logger.error(f"File is not a PDF: {pdf_path}")
             return False
 

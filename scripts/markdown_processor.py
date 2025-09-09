@@ -437,7 +437,7 @@ def sync_main(args):
     elif os.path.isdir(args.input):
         # Directory
         markdown_files = []
-        for root, dirs, files in os.walk(args.input):
+        for root, _dirs, files in os.walk(args.input):
             for file in files:
                 if file.lower().endswith(".md"):
                     markdown_files.append(os.path.join(root, file))
@@ -496,7 +496,7 @@ async def async_main(args):
     elif os.path.isdir(args.input):
         # Directory
         markdown_files = []
-        for root, dirs, files in os.walk(args.input):
+        for root, _dirs, files in os.walk(args.input):
             for file in files:
                 if file.lower().endswith(".md"):
                     markdown_files.append(os.path.join(root, file))

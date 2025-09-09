@@ -7,6 +7,7 @@ Full-featured bot with AI integration, file processing, and automation.
 """
 
 import asyncio
+import contextlib
 import logging
 import os
 import signal
@@ -537,14 +538,12 @@ async def handle_markdown_intake(message: discord.Message):
             await message.reply(embed=embed)
 
         # Store in conversation memory
-        try:
+        with contextlib.suppress(Exception):
             await memory.store_conversation(
                 user.id,
                 f"Submitted idea sheet: {filename}",
                 f"Saved with tags: {', '.join(tags)}",
             )
-        except Exception:
-            pass
 
         logger.info(f"Idea sheet saved: {filename} by {user.display_name}")
 
@@ -560,10 +559,8 @@ async def handle_dm_conversation(message: discord.Message):
 
     try:
         history = []
-        try:
+        with contextlib.suppress(Exception):
             history = await memory.get_conversation_history(user.id, limit=5)
-        except Exception:
-            pass
 
         response = "Thanks for your message! I've noted it down. You can use `/submit-idea` to submit ideas, or send markdown directly."
         if history:
@@ -571,10 +568,8 @@ async def handle_dm_conversation(message: discord.Message):
 
         await message.reply(response)
 
-        try:
+        with contextlib.suppress(Exception):
             await memory.store_conversation(user.id, content, response)
-        except Exception:
-            pass
 
     except Exception as e:
         logger.error(f"DM conversation error: {e}")
@@ -729,14 +724,12 @@ async def submit_idea_command(
         else:
             await interaction.followup.send(embed=embed)
 
-        try:
+        with contextlib.suppress(Exception):
             await memory.store_conversation(
                 user.id,
                 f"Submitted idea: {title}",
                 f"Saved as {filename} with tags: {', '.join(tag_list)}",
             )
-        except Exception:
-            pass
 
         logger.info(
             f"Idea submitted via slash command: {filename} by {user.display_name}"
@@ -1258,10 +1251,8 @@ async def on_command_error(ctx: commands.Context, error: Exception):
     logger.error(
         f"Command error in {getattr(ctx, 'command', None)}: {error}", exc_info=True
     )
-    try:
+    with contextlib.suppress(Exception):
         await ctx.send(f"❌ Command error: {str(error)}")
-    except Exception:
-        pass
 
 
 @bot.event
@@ -1271,12 +1262,10 @@ async def on_application_command_error(
     """Handle slash command errors."""
     logger.error(f"Slash command error: {error}", exc_info=True)
     if not interaction.response.is_done():
-        try:
+        with contextlib.suppress(Exception):
             await interaction.response.send_message(
                 f"❌ An error occurred: {str(error)}", ephemeral=True
             )
-        except Exception:
-            pass
 
 
 @bot.event
@@ -1401,10 +1390,8 @@ async def cleanup():
     except Exception:
         pass
 
-    try:
+    with contextlib.suppress(Exception):
         await shutdown_thread_pool()
-    except Exception:
-        pass
 
     logger.info("Cleanup completed")
 
@@ -1471,10 +1458,8 @@ def main():
     except Exception as e:
         logger.error(f"Bot error: {e}", exc_info=True)
     finally:
-        try:
+        with contextlib.suppress(Exception):
             asyncio.run(cleanup())
-        except Exception:
-            pass
 
 
 if __name__ == "__main__":

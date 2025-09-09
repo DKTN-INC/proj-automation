@@ -16,6 +16,7 @@ All components are designed to degrade gracefully when optional dependencies are
 
 import ast
 import asyncio
+import contextlib
 import hashlib
 import json
 import os
@@ -573,12 +574,10 @@ class FileProcessor:
         """Convert HTML to PDF using pdfkit."""
         if not PDF_AVAILABLE:
             # Create a simple fallback text file
-            try:
+            with contextlib.suppress(OSError, IOError):
                 with open(output_path.with_suffix(".txt"), "w", encoding="utf-8") as f:
                     f.write("PDF generation not available - pdfkit not installed\n\n")
                     f.write(html_content)
-            except Exception:
-                pass
             return False
 
         try:
@@ -617,10 +616,7 @@ class CodeAnalyzer:
                 ["flake8", "--select=E,W,F", temp_path], capture_output=True, text=True
             )
 
-            try:
-                os.unlink(temp_path)
-            except Exception:
-                pass
+            Path(temp_path).unlink(missing_ok=True)
 
             if result.returncode == 0:
                 return ["✅ No linting issues found!"]

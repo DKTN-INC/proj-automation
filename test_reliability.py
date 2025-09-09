@@ -169,21 +169,21 @@ class ReliabilityTester:
             # Test normal failure handling
             try:
                 await circuit_breaker.call(failing_function)
-                assert False, "Should have raised exception"
+                raise AssertionError("Should have raised exception")
             except ConnectionError:
                 pass  # Expected
 
             # Trigger circuit breaker opening
             try:
                 await circuit_breaker.call(failing_function)
-                assert False, "Should have raised exception"
+                raise AssertionError("Should have raised exception")
             except ConnectionError:
                 pass  # Expected, circuit should open now
 
             # Next call should fail fast
             try:
                 await circuit_breaker.call(failing_function)
-                assert False, "Should have raised CircuitBreakerError"
+                raise AssertionError("Should have raised CircuitBreakerError")
             except CircuitBreakerError:
                 pass  # Expected
 
