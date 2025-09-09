@@ -25,7 +25,6 @@ try:
         HTTPSessionManager,
         MemoryManager,
         cleanup_resources,
-        get_http_session,
         temporary_file,
     )
     from retry_utils import (
@@ -169,21 +168,21 @@ class ReliabilityTester:
             # Test normal failure handling
             try:
                 await circuit_breaker.call(failing_function)
-                assert False, "Should have raised exception"
+                raise AssertionError("Should have raised exception")
             except ConnectionError:
                 pass  # Expected
 
             # Trigger circuit breaker opening
             try:
                 await circuit_breaker.call(failing_function)
-                assert False, "Should have raised exception"
+                raise AssertionError("Should have raised exception")
             except ConnectionError:
                 pass  # Expected, circuit should open now
 
             # Next call should fail fast
             try:
                 await circuit_breaker.call(failing_function)
-                assert False, "Should have raised CircuitBreakerError"
+                raise AssertionError("Should have raised CircuitBreakerError")
             except CircuitBreakerError:
                 pass  # Expected
 
@@ -214,7 +213,7 @@ class ReliabilityTester:
         """Test resource management functionality."""
         try:
             # Test file manager
-            file_manager = FileManager(max_files=5, max_age_hours=1)
+            _ = FileManager(max_files=5, max_age_hours=1)
 
             # Test temporary file creation and cleanup
             async with temporary_file(

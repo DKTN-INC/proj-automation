@@ -12,6 +12,7 @@ import datetime
 import os
 import re
 import sys
+from pathlib import Path
 from typing import Dict, Optional
 
 import markdown
@@ -434,13 +435,13 @@ def sync_main(args):
             print(f"❌ Error: {result['error']}", file=sys.stderr)
             sys.exit(1)
 
-    elif os.path.isdir(args.input):
+    elif Path(args.input).is_dir():
         # Directory
         markdown_files = []
-        for root, dirs, files in os.walk(args.input):
+        for root, _dirs, files in os.walk(args.input):
             for file in files:
                 if file.lower().endswith(".md"):
-                    markdown_files.append(os.path.join(root, file))
+                    markdown_files.append(Path(root) / file)
 
         if not markdown_files:
             print(f"No markdown files found in {args.input}", file=sys.stderr)
@@ -493,13 +494,13 @@ async def async_main(args):
             print(f"❌ Error: {result['error']}", file=sys.stderr)
             sys.exit(1)
 
-    elif os.path.isdir(args.input):
+    elif Path(args.input).is_dir():
         # Directory
         markdown_files = []
-        for root, dirs, files in os.walk(args.input):
+        for root, _dirs, files in os.walk(args.input):
             for file in files:
                 if file.lower().endswith(".md"):
-                    markdown_files.append(os.path.join(root, file))
+                    markdown_files.append(Path(root) / file)
 
         if not markdown_files:
             print(f"No markdown files found in {args.input}", file=sys.stderr)
