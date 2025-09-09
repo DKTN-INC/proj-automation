@@ -5,13 +5,14 @@ Provides functionality to generate campaign briefs and render them as Markdown.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional
 from datetime import datetime
+from typing import List, Optional
 
 
 @dataclass
 class CampaignBrief:
     """Campaign brief containing all necessary information for a marketing campaign."""
+
     campaign_name: str
     target_audience: str
     objectives: List[str]
@@ -31,7 +32,7 @@ def generate_campaign_brief(
     timeline: Optional[str] = None,
     channels: Optional[List[str]] = None,
     key_messages: Optional[List[str]] = None,
-    success_metrics: Optional[List[str]] = None
+    success_metrics: Optional[List[str]] = None,
 ) -> CampaignBrief:
     """
     Generate a campaign brief with the provided information.
@@ -58,7 +59,7 @@ def generate_campaign_brief(
         channels=channels or [],
         key_messages=key_messages or [],
         success_metrics=success_metrics or [],
-        created_at=datetime.now()
+        created_at=datetime.now(),
     )
 
 
@@ -78,7 +79,7 @@ def render_campaign_brief_markdown(brief: CampaignBrief) -> str:
         "## Target Audience",
         brief.target_audience,
         "",
-        "## Objectives"
+        "## Objectives",
     ]
 
     # Add objectives as bullet points
@@ -88,19 +89,11 @@ def render_campaign_brief_markdown(brief: CampaignBrief) -> str:
 
     # Add budget if provided
     if brief.budget is not None:
-        lines.extend([
-            "## Budget",
-            f"${brief.budget:,.2f}",
-            ""
-        ])
+        lines.extend(["## Budget", f"${brief.budget:,.2f}", ""])
 
     # Add timeline if provided
     if brief.timeline:
-        lines.extend([
-            "## Timeline",
-            brief.timeline,
-            ""
-        ])
+        lines.extend(["## Timeline", brief.timeline, ""])
 
     # Add channels if provided
     if brief.channels:
@@ -125,10 +118,6 @@ def render_campaign_brief_markdown(brief: CampaignBrief) -> str:
 
     # Add creation timestamp
     if brief.created_at:
-        lines.extend([
-            "## Created",
-            brief.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            ""
-        ])
+        lines.extend(["## Created", brief.created_at.strftime("%Y-%m-%d %H:%M:%S"), ""])
 
     return "\n".join(lines).rstrip() + "\n"

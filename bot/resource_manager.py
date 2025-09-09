@@ -10,7 +10,7 @@ import gc
 import logging
 import os
 import tempfile
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -77,10 +77,8 @@ class ResourceManager(Generic[T]):
         """Stop resource manager and cleanup all resources."""
         if self._cleanup_task:
             self._cleanup_task.cancel()
-            try:
+            with suppress(asyncio.CancelledError):
                 await self._cleanup_task
-            except asyncio.CancelledError:
-                pass
 
         await self.cleanup_all()
         logger.info(f"Stopped resource manager: {self.name}")
@@ -141,7 +139,7 @@ class ResourceManager(Generic[T]):
         async with self._lock:
             if key in self._resources:
                 resource = self._resources.pop(key)
-                metadata = self._resource_metadata.pop(key, {})
+                self._resource_metadata.pop(key, {})
 
                 await self._cleanup_resource(resource)
                 self._stats.active_count -= 1
@@ -411,7 +409,7 @@ class HTTPSessionManager:
     async def close_all_sessions(self) -> None:
         """Close all HTTP sessions."""
         async with self._lock:
-            for key, session in self._sessions.items():
+            for _key, session in self._sessions.items():
                 if not session.closed:
                     await session.close()
 

@@ -5,14 +5,17 @@ Tests the campaign brief generation and Markdown rendering features.
 """
 
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+
 
 # Add bot directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "bot"))
 
 from features.marketing import (  # noqa: E402
-    generate_campaign_brief, render_campaign_brief_markdown, CampaignBrief
+    CampaignBrief,
+    generate_campaign_brief,
+    render_campaign_brief_markdown,
 )
 
 

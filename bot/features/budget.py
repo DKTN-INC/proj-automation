@@ -5,21 +5,23 @@ Provides functionality to summarize budgets and categorize spending.
 """
 
 from dataclasses import dataclass
-from typing import List, Dict, Any, Union
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Any, Dict, List, Union
 
 
 @dataclass
 class BudgetSummary:
     """Budget summary with totals, remaining amount, usage %, and status."""
+
     totals: Decimal
     remaining: Decimal
     percent_used: float
     status: str
 
 
-def summarize_budget(transactions: List[Dict[str, Any]],
-                     limit: Union[Decimal, float, int]) -> BudgetSummary:
+def summarize_budget(
+    transactions: List[Dict[str, Any]], limit: Union[Decimal, float, int]
+) -> BudgetSummary:
     """
     Summarize budget based on transactions and spending limit.
 
@@ -33,25 +35,28 @@ def summarize_budget(transactions: List[Dict[str, Any]],
     if not transactions:
         limit_decimal = Decimal(str(limit))
         return BudgetSummary(
-            totals=Decimal('0'),
+            totals=Decimal("0"),
             remaining=limit_decimal,
             percent_used=0.0,
-            status="unused"
+            status="unused",
         )
 
     # Convert limit to Decimal for precise calculations
     limit_decimal = Decimal(str(limit))
 
     # Sum all transaction amounts
-    total_spent = Decimal('0')
+    total_spent = Decimal("0")
     for transaction in transactions:
-        amount = transaction.get('amount', 0)
+        amount = transaction.get("amount", 0)
         total_spent += Decimal(str(amount))
 
     # Calculate remaining and percentage
     remaining = limit_decimal - total_spent
-    percent_used = float((total_spent / limit_decimal * 100).quantize(
-        Decimal('0.1'), rounding=ROUND_HALF_UP))
+    percent_used = float(
+        (total_spent / limit_decimal * 100).quantize(
+            Decimal("0.1"), rounding=ROUND_HALF_UP
+        )
+    )
 
     # Determine status
     if percent_used >= 100:
@@ -67,13 +72,15 @@ def summarize_budget(transactions: List[Dict[str, Any]],
         totals=total_spent,
         remaining=remaining,
         percent_used=percent_used,
-        status=status
+        status=status,
     )
 
 
-def categorize_spend(items: List[Dict[str, Any]],
-                     category_key: str = "category",
-                     amount_key: str = "amount") -> Dict[str, Decimal]:
+def categorize_spend(
+    items: List[Dict[str, Any]],
+    category_key: str = "category",
+    amount_key: str = "amount",
+) -> Dict[str, Decimal]:
     """
     Categorize and aggregate spending by category.
 
@@ -105,6 +112,7 @@ def categorize_spend(items: List[Dict[str, Any]],
     # Round all amounts to 2 decimal places
     for category in category_totals:
         category_totals[category] = category_totals[category].quantize(
-            Decimal('0.01'), rounding=ROUND_HALF_UP)
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
 
     return category_totals

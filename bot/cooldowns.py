@@ -189,7 +189,7 @@ class CooldownManager:
             "commands_with_cooldowns": 0,
         }
 
-        for command, users in self._cooldowns.items():
+        for _command, users in self._cooldowns.items():
             active_users = sum(
                 1 for next_time in users.values() if next_time > current_time
             )
@@ -229,10 +229,7 @@ class CooldownDecorator:
                 minutes = int(remaining // 60)
                 seconds = int(remaining % 60)
 
-                if minutes > 0:
-                    time_str = f"{minutes}m {seconds}s"
-                else:
-                    time_str = f"{seconds}s"
+                time_str = f"{minutes}m {seconds}s" if minutes > 0 else f"{seconds}s"
 
                 await interaction.response.send_message(
                     f"⏰ You're on cooldown! Please wait {time_str} before using this command again.",

@@ -177,7 +177,7 @@ def convert_md_to_pdf(md_file_path, output_dir=None, custom_options=None):
         raise FileNotFoundError(f"Markdown file not found: {md_file_path}")
 
     # Read markdown content
-    with open(md_path, encoding="utf-8") as f:
+    with md_path.open(encoding="utf-8") as f:
         md_content = f.read()
 
     # Determine output path

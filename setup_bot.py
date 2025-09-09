@@ -6,6 +6,7 @@ Helps configure environment variables and validate the setup.
 
 import os
 import sys
+from pathlib import Path
 
 
 def main():
@@ -14,7 +15,7 @@ def main():
     print("=" * 40)
 
     # Check if we're in the right directory
-    if not os.path.exists("bot/main.py"):
+    if not Path("bot/main.py").exists():
         print("❌ Please run this script from the repository root directory")
         sys.exit(1)
 
