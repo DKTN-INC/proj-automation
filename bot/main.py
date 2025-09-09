@@ -1251,10 +1251,8 @@ async def on_command_error(ctx: commands.Context, error: Exception):
     logger.error(
         f"Command error in {getattr(ctx, 'command', None)}: {error}", exc_info=True
     )
-    try:
+    with contextlib.suppress(Exception):
         await ctx.send(f"❌ Command error: {str(error)}")
-    except Exception:
-        pass
 
 
 @bot.event
@@ -1264,12 +1262,10 @@ async def on_application_command_error(
     """Handle slash command errors."""
     logger.error(f"Slash command error: {error}", exc_info=True)
     if not interaction.response.is_done():
-        try:
+        with contextlib.suppress(Exception):
             await interaction.response.send_message(
                 f"❌ An error occurred: {str(error)}", ephemeral=True
             )
-        except Exception:
-            pass
 
 
 @bot.event
@@ -1388,16 +1384,12 @@ async def cleanup():
         logger.warning(f"Failed to cleanup managed resources: {e}")
 
     global _openai_client
-    try:
+    with contextlib.suppress(Exception):
         if _openai_client and hasattr(_openai_client, "close"):
             await _openai_client.close()
-    except Exception:
-        pass
 
-    try:
+    with contextlib.suppress(Exception):
         await shutdown_thread_pool()
-    except Exception:
-        pass
 
     logger.info("Cleanup completed")
 
@@ -1464,10 +1456,8 @@ def main():
     except Exception as e:
         logger.error(f"Bot error: {e}", exc_info=True)
     finally:
-        try:
+        with contextlib.suppress(Exception):
             asyncio.run(cleanup())
-        except Exception:
-            pass
 
 
 if __name__ == "__main__":

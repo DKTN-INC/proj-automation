@@ -69,18 +69,18 @@ class MarkdownProcessor:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title or 'Document' }}</title>
     <style>
-        body { 
+        body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            max-width: 800px; 
-            margin: 0 auto; 
+            max-width: 800px;
+            margin: 0 auto;
             padding: 2rem;
             line-height: 1.6;
             color: #333;
         }
-        .toc { 
-            background: #f8f9fa; 
-            padding: 1rem; 
-            border-radius: 8px; 
+        .toc {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
             margin: 2rem 0;
             border-left: 4px solid #007bff;
         }
@@ -103,12 +103,12 @@ class MarkdownProcessor:
         table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
         th, td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; }
         th { background-color: #f8f9fa; font-weight: 600; }
-        .metadata { 
-            font-size: 0.9rem; 
-            color: #666; 
-            border-top: 1px solid #eee; 
-            padding-top: 1rem; 
-            margin-top: 2rem; 
+        .metadata {
+            font-size: 0.9rem;
+            color: #666;
+            border-top: 1px solid #eee;
+            padding-top: 1rem;
+            margin-top: 2rem;
         }
     </style>
 </head>
@@ -119,18 +119,18 @@ class MarkdownProcessor:
         <p>{{ summary }}</p>
     </div>
     {% endif %}
-    
+
     {% if toc %}
     <div class="toc">
         <h2>📚 Table of Contents</h2>
         {{ toc | safe }}
     </div>
     {% endif %}
-    
+
     <main>
         {{ content | safe }}
     </main>
-    
+
     {% if metadata %}
     <div class="metadata">
         <p><strong>Generated:</strong> {{ metadata.generated_at }}</p>

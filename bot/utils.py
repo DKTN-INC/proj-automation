@@ -16,7 +16,6 @@ All components are designed to degrade gracefully when optional dependencies are
 
 import hashlib
 import json
-import os
 import re
 import tempfile
 from pathlib import Path
@@ -71,6 +70,8 @@ except ImportError:
     WEB_AVAILABLE = False
 
 # Markdown / PDF
+import contextlib
+
 import markdown
 from jinja2 import Template
 
@@ -435,7 +436,7 @@ class AIHelper:
             return "Audio transcription not available (OpenAI API key required)"
 
         try:
-            with open(audio_path, "rb") as audio_file:
+            with Path(audio_path).open("rb") as audio_file:
                 transcript = await openai.Audio.atranscribe(
                     model=getattr(config, "whisper_model", "whisper-1"), file=audio_file
                 )
@@ -570,7 +571,7 @@ class FileProcessor:
         if not PDF_AVAILABLE:
             # Create a simple fallback text file
             try:
-                with open(output_path.with_suffix(".txt"), "w", encoding="utf-8") as f:
+                with output_path.with_suffix(".txt").open("w", encoding="utf-8") as f:
                     f.write("PDF generation not available - pdfkit not installed\n\n")
                     f.write(html_content)
             except Exception:
@@ -613,10 +614,8 @@ class CodeAnalyzer:
                 ["flake8", "--select=E,W,F", temp_path], capture_output=True, text=True
             )
 
-            try:
-                os.unlink(temp_path)
-            except Exception:
-                pass
+            with contextlib.suppress(Exception):
+                Path(temp_path).unlink()
 
             if result.returncode == 0:
                 return ["✅ No linting issues found!"]

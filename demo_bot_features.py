@@ -21,8 +21,8 @@ async def demo_markdown_processing():
 
     test_markdown = """# AI-Powered Feature Demo
 
-**Author:** Demo User  
-**Created:** 2024-01-01  
+**Author:** Demo User
+**Created:** 2024-01-01
 **Tags:** demo, ai, discord-bot
 
 ---
@@ -53,7 +53,7 @@ async def example_function():
 
     # Save demo HTML file
     output_path = Path("output") / "demo_output.html"
-    with open(output_path, "w", encoding="utf-8") as f:
+    with output_path.open("w", encoding="utf-8") as f:
         f.write(html_content)
     print(f"💾 Saved to: {output_path}")
 

@@ -258,7 +258,7 @@ def parse_discord_messages(messages: list) -> dict:
 
     hourly_activity = defaultdict(int)
     emoji_usage = Counter()
-    mention_patterns = Counter()
+    _ = Counter()  # mention_patterns placeholder
 
     # Process each message
     for msg in messages:
@@ -292,7 +292,7 @@ def parse_discord_messages(messages: list) -> dict:
             try:
                 hour = timestamp.hour
                 hourly_activity[hour] += 1
-            except:
+            except Exception:
                 pass
 
     # Calculate averages and insights
