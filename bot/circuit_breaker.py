@@ -151,7 +151,10 @@ class CircuitBreaker:
             self.stats.success_count += 1
             self.stats.last_success_time = datetime.now()
 
-            if self.stats.state == CircuitState.HALF_OPEN and self.stats.success_count >= self.config.success_threshold:
+            if (
+                self.stats.state == CircuitState.HALF_OPEN
+                and self.stats.success_count >= self.config.success_threshold
+            ):
                 self._transition_to_closed()
 
     async def _on_failure(self, exception: Exception) -> None:
