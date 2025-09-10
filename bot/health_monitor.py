@@ -6,6 +6,7 @@ Provides health checks, monitoring capabilities, and system status tracking.
 """
 
 import asyncio
+import contextlib
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -71,10 +72,8 @@ class HealthMonitor:
         """Stop health monitoring."""
         if self._monitoring_task:
             self._monitoring_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._monitoring_task
-            except asyncio.CancelledError:
-                pass
             logger.info("Health monitoring stopped")
 
     async def _monitoring_loop(self) -> None:

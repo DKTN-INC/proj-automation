@@ -14,27 +14,24 @@ Includes:
 All components are designed to degrade gracefully when optional dependencies are missing.
 """
 
+import hashlib
+import json
 import os
 import re
-import json
-import ast
-import hashlib
-import sqlite3
 import tempfile
-import asyncio
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Tuple
-from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 import aiosqlite
+
 
 # Optional dependencies and availability flags
 # OCR
 try:
-    import pytesseract
-    from PIL import Image  # noqa: F401 (imported for completeness; used by pytesseract)
     import cv2
     import numpy as np  # noqa: F401 (used in advanced pipelines if added)
+    import pytesseract
+    from PIL import Image  # noqa: F401 (imported for completeness; used by pytesseract)
 
     OCR_AVAILABLE = True
 except ImportError:
@@ -74,8 +71,11 @@ except ImportError:
     WEB_AVAILABLE = False
 
 # Markdown / PDF
+import contextlib
+
 import markdown
 from jinja2 import Template
+
 
 try:
     import pdfkit
@@ -615,10 +615,8 @@ class CodeAnalyzer:
                 ["flake8", "--select=E,W,F", temp_path], capture_output=True, text=True
             )
 
-            try:
+            with contextlib.suppress(Exception):
                 os.unlink(temp_path)
-            except Exception:
-                pass
 
             if result.returncode == 0:
                 return ["✅ No linting issues found!"]
