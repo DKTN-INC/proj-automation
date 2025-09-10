@@ -4,12 +4,14 @@ Markdown to PDF Converter
 Converts Markdown files to PDFs using pdfkit and wkhtmltopdf
 """
 
-import sys
 import argparse
+import logging
+import sys
+from pathlib import Path
+
 import markdown
 import pdfkit
-from pathlib import Path
-import logging
+
 
 # Configure logging
 logging.basicConfig(
@@ -175,7 +177,7 @@ def convert_md_to_pdf(md_file_path, output_dir=None, custom_options=None):
         raise FileNotFoundError(f"Markdown file not found: {md_file_path}")
 
     # Read markdown content
-    with open(md_path, "r", encoding="utf-8") as f:
+    with open(md_path, encoding="utf-8") as f:
         md_content = f.read()
 
     # Determine output path

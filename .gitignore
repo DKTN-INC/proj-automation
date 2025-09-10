@@ -49,6 +49,15 @@ coverage.xml
 .tox/
 .nox/
 
+# Ruff
+.ruff_cache/
+
+# MyPy
+.mypy_cache/
+
+# Pre-commit
+.pre-commit-cache/
+
 # OS generated files
 .DS_Store
 .DS_Store?

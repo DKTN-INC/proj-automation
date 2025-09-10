@@ -4,13 +4,15 @@ Discord PDF Sender
 Sends PDF files to Discord via webhook
 """
 
-import sys
 import argparse
-import requests
 import json
-from pathlib import Path
 import logging
+import sys
 from datetime import datetime
+from pathlib import Path
+
+import requests
+
 
 # Configure logging
 logging.basicConfig(
