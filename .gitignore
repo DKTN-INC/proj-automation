@@ -16,6 +16,9 @@ env/
 .env
 env.bak/
 venv.bak/
+.env.txt
+.env.local
+.env.*.local
 
 # Template cache
 scripts/templates/.cache/
