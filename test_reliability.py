@@ -25,7 +25,6 @@ try:
         HTTPSessionManager,
         MemoryManager,
         cleanup_resources,
-        get_http_session,
         temporary_file,
     )
     from retry_utils import (
@@ -314,7 +313,8 @@ class ReliabilityTester:
             # Test HTTP retry strategy
             http_strategy = create_http_retry_strategy()
             assert http_strategy.max_retries == 3
-            assert http_strategy.base_delay == 1.0
+            # compare floats with tolerance
+            assert abs(http_strategy.base_delay - 1.0) < 1e-9
 
             logger.info("Retry mechanisms test completed successfully")
             return True
@@ -456,7 +456,12 @@ class ReliabilityTester:
         print("\nDetailed Results:")
         for test_name, result in self.results.items():
             status = result["status"]
-            emoji = "✅" if status == "PASSED" else "❌" if status == "FAILED" else "⚠️"
+            if status == "PASSED":
+                emoji = "✅"
+            elif status == "FAILED":
+                emoji = "❌"
+            else:
+                emoji = "⚠️"
             print(f"  {emoji} {test_name}: {status}")
 
             if result["details"] and status != "PASSED":

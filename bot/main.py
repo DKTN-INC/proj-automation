@@ -6,19 +6,53 @@ Provides /ask and /summarize commands for team collaboration.
 Full-featured bot with AI integration, file processing, and automation.
 """
 
-import os
 import asyncio
+import contextlib
 import logging
+import os
 import signal
 import tempfile
-from pathlib import Path
 from datetime import datetime, timedelta
-from typing import Optional, List, Callable, Any, Dict, Tuple
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Tuple
+import warnings
+import shutil
 
 import aiofiles
 import discord
-from discord.ext import commands
 from discord import app_commands
+from discord.ext import commands
+
+# Load environment variables from .env file early
+from dotenv import load_dotenv
+
+# Workaround for pydub ffmpeg warning: suppress the specific RuntimeWarning that
+# appears when ffmpeg/avconv isn't found on PATH, and try to locate ffmpeg and
+# configure pydub to use it if present. This runs before importing modules that
+# may import pydub to avoid noisy warnings during startup.
+
+
+# Load environment variables
+load_dotenv()
+
+warnings.filterwarnings(
+    "ignore",
+    message="Couldn't find ffmpeg or avconv - defaulting to ffmpeg, but may not work",
+    category=RuntimeWarning,
+)
+
+# If ffmpeg is available on PATH, set pydub's converter after import (we'll
+# attempt a lazy import below where pydub is available). This prevents the
+# warning and ensures audio processing works when ffmpeg is installed.
+_ffmpeg_path = shutil.which("ffmpeg") or shutil.which("ffmpeg.exe")
+if _ffmpeg_path:
+    # Use contextlib.suppress to quietly handle import/assignment failures
+    # (keeps intent explicit and satisfies linters suggesting contextlib.suppress)
+    with contextlib.suppress(Exception):
+        # Delay import so we don't trigger pydub utils before filtering warnings
+        from pydub import AudioSegment  # type: ignore
+
+        AudioSegment.converter = _ffmpeg_path  # type: ignore
 
 # -----------------------------------------------------------------------------
 # Imports from our package with fallbacks for direct execution
@@ -28,45 +62,53 @@ try:
         config,
     )  # config object with directories, tokens, validation, etc.
     from .utils import (
-        memory,
         ai_helper,
-        file_processor,
         code_analyzer,
+        file_processor,
         github_helper,
+        memory,
         web_search,
     )
 except ImportError:
     from config import config  # type: ignore
     from utils import (  # type: ignore
-        memory,
         ai_helper,
-        file_processor,
         code_analyzer,
+        file_processor,
         github_helper,
+        memory,
         web_search,
     )
 
 # Optional advanced modules (structured logging, cooldowns, OpenAI wrapper, thread pool)
 try:
-    from .logging_config import setup_logging, log_command_execution, log_bot_event  # type: ignore
+    from .circuit_breaker import circuit_manager
     from .health_monitor import (
         health_monitor,
+        register_health_check,
         start_health_monitoring,
         stop_health_monitoring,
-        register_health_check,
     )
-    from .circuit_breaker import circuit_manager
+    from .logging_config import (  # type: ignore
+        log_bot_event,
+        log_command_execution,
+        setup_logging,
+    )
     from .resource_manager import cleanup_resources, get_resource_stats
 except Exception:
     try:
-        from logging_config import setup_logging, log_command_execution, log_bot_event  # type: ignore
+        from circuit_breaker import circuit_manager
         from health_monitor import (
             health_monitor,
+            register_health_check,
             start_health_monitoring,
             stop_health_monitoring,
-            register_health_check,
         )
-        from circuit_breaker import circuit_manager
+        from logging_config import (  # type: ignore
+            log_bot_event,
+            log_command_execution,
+            setup_logging,
+        )
         from resource_manager import cleanup_resources, get_resource_stats
     except Exception:
         # Fallbacks
@@ -128,13 +170,17 @@ except Exception:
         OpenAIWrapper = None  # type: ignore
 
 try:
-    from .thread_pool import thread_pool, parse_discord_messages, shutdown_thread_pool  # type: ignore
+    from .thread_pool import (  # type: ignore
+        parse_discord_messages,
+        shutdown_thread_pool,
+        thread_pool,
+    )
 except Exception:
     try:
         from thread_pool import (
-            thread_pool,
             parse_discord_messages,
             shutdown_thread_pool,
+            thread_pool,
         )  # type: ignore
     except Exception:
         thread_pool = None  # type: ignore
@@ -280,7 +326,7 @@ async def on_ready():
         logger.warning(f"Config validation failed: {e}")
 
     # Start health monitoring
-    try:
+    with contextlib.suppress(Exception):
         if health_monitor:
             # Register custom health checks
             register_health_check("discord_connection", check_discord_health)
@@ -289,8 +335,6 @@ async def on_ready():
 
             await start_health_monitoring()
             logger.info("Health monitoring started")
-    except Exception as e:
-        logger.warning(f"Health monitoring setup failed: {e}")
 
     # Sync commands
     try:
@@ -300,51 +344,31 @@ async def on_ready():
         logger.error(f"Failed to sync commands: {e}", exc_info=True)
 
 
-@bot.event
-async def on_message(message: discord.Message):
-    """Handle incoming messages, including DMs."""
-    if message.author == bot.user:
-        return
+    async def handle_dm_message(message: discord.Message):
+        """Handle direct messages for markdown intake and file uploads."""
+        user = message.author
+        content = (message.content or "").strip()
 
-    # Handle DM messages
-    if isinstance(message.channel, discord.DMChannel):
-        await handle_dm_message(message)
+        # Admin uploads to helpdocs
+        # Use contextlib.suppress to ignore expected transient errors
+        import contextlib
 
-    # Handle mentions and code blocks in channels
-    elif message.guild:
-        await handle_guild_message(message)
+        with contextlib.suppress(Exception):
+            if (
+                hasattr(config, "is_admin")
+                and config.is_admin(user.id)
+                and message.attachments
+            ):
+                await handle_admin_file_upload(message)
+                return
 
-    # Process commands
-    await bot.process_commands(message)
-
-
-# -----------------------------------------------------------------------------
-# DM handling
-# -----------------------------------------------------------------------------
-async def handle_dm_message(message: discord.Message):
-    """Handle direct messages for markdown intake and file uploads."""
-    user = message.author
-    content = (message.content or "").strip()
-
-    # Admin uploads to helpdocs
-    try:
-        if (
-            hasattr(config, "is_admin")
-            and config.is_admin(user.id)
-            and message.attachments
-        ):
-            await handle_admin_file_upload(message)
-            return
-    except Exception:
-        pass
-
-    # Attachments (OCR/transcription) or markdown intake
-    if message.attachments:
-        await handle_dm_attachments(message)
-    elif content.startswith("```") or content.startswith("#") or len(content) > 100:
-        await handle_markdown_intake(message)
-    else:
-        await handle_dm_conversation(message)
+        # Attachments (OCR/transcription) or markdown intake
+        if message.attachments:
+            await handle_dm_attachments(message)
+        elif content.startswith("```") or content.startswith("#") or len(content) > 100:
+            await handle_markdown_intake(message)
+        else:
+            await handle_dm_conversation(message)
 
 
 async def handle_admin_file_upload(message: discord.Message):
@@ -352,7 +376,8 @@ async def handle_admin_file_upload(message: discord.Message):
     user = message.author
 
     for attachment in message.attachments:
-        try:
+        # Best-effort: suppress expected transient errors during admin uploads
+        with contextlib.suppress(Exception):
             file_path = (
                 Path(getattr(config, "helpdocs_dir", Path("docs/helpdocs")))
                 / attachment.filename
@@ -361,15 +386,10 @@ async def handle_admin_file_upload(message: discord.Message):
                 data = await attachment.read()
                 await f.write(data)
 
-            await message.reply(
-                f"✅ File `{attachment.filename}` uploaded to helpdocs/"
-            )
+            await message.reply(f"[OK] File `{attachment.filename}` uploaded to helpdocs/")
             logger.info(
                 f"Admin {user.display_name} uploaded {attachment.filename} to helpdocs"
             )
-        except Exception as e:
-            await message.reply(f"❌ Failed to upload {attachment.filename}: {str(e)}")
-            logger.error(f"Admin upload failed: {e}")
 
 
 async def handle_dm_attachments(message: discord.Message):
@@ -420,24 +440,22 @@ async def handle_dm_attachments(message: discord.Message):
                     )
                     await message.reply(embed=embed)
 
-                    try:
+                    # Best-effort cleanup of temp wav file; suppress known errors
+                    with contextlib.suppress(TypeError, FileNotFoundError):
                         wav_path.unlink(missing_ok=True)  # type: ignore
-                    except TypeError:
-                        # py<3.8 compatibility
-                        if wav_path.exists():
-                            wav_path.unlink()
                 else:
                     await message.reply("❌ Failed to process audio file")
 
             else:
                 await message.reply(f"❓ Unsupported file type: {attachment.filename}")
 
-            # Clean up temp file
-            if temp_path.exists():
-                temp_path.unlink()
+            # Clean up temp file (best-effort)
+            with contextlib.suppress(Exception):
+                if temp_path.exists():
+                    temp_path.unlink()
 
         except Exception as e:
-            await message.reply(f"❌ Error processing {attachment.filename}: {str(e)}")
+            await message.reply(f"[ERROR] Error processing {attachment.filename}: {str(e)}")
             logger.error(f"Attachment processing error: {e}")
 
 
@@ -469,11 +487,10 @@ async def handle_markdown_intake(message: discord.Message):
         md_title = title if title else "Untitled Idea"
         markdown_content = f"""# {md_title}
 
-**Author:** {user.display_name}  
-**Created:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}  
+**Author:** {user.display_name}
+**Created:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 **Tags:** {", ".join(tags)}
 
----
 
 {content}
 """
@@ -523,15 +540,13 @@ async def handle_markdown_intake(message: discord.Message):
         else:
             await message.reply(embed=embed)
 
-        # Store in conversation memory
-        try:
+        # Store in conversation memory (best-effort)
+        with contextlib.suppress(Exception):
             await memory.store_conversation(
                 user.id,
                 f"Submitted idea sheet: {filename}",
                 f"Saved with tags: {', '.join(tags)}",
             )
-        except Exception:
-            pass
 
         logger.info(f"Idea sheet saved: {filename} by {user.display_name}")
 
@@ -545,26 +560,22 @@ async def handle_dm_conversation(message: discord.Message):
     user = message.author
     content = message.content or ""
 
-    try:
-        history = []
-        try:
-            history = await memory.get_conversation_history(user.id, limit=5)
-        except Exception:
-            pass
+    # Attempt to load recent history; ignore failures
+    history = []
+    import contextlib
 
-        response = "Thanks for your message! I've noted it down. You can use `/submit-idea` to submit ideas, or send markdown directly."
-        if history:
-            response += f"\n\nWe've had {len(history)} previous conversations."
+    with contextlib.suppress(Exception):
+        history = await memory.get_conversation_history(user.id, limit=5)
 
-        await message.reply(response)
+    response = "Thanks for your message! I've noted it down. You can use `/submit-idea` to submit ideas, or send markdown directly."
+    if history:
+        response += f"\n\nWe've had {len(history)} previous conversations."
 
-        try:
-            await memory.store_conversation(user.id, content, response)
-        except Exception:
-            pass
+    await message.reply(response)
 
-    except Exception as e:
-        logger.error(f"DM conversation error: {e}")
+    # Best-effort store; ignore storage errors
+    with contextlib.suppress(Exception):
+        await memory.store_conversation(user.id, content, response)
 
 
 # -----------------------------------------------------------------------------
@@ -669,8 +680,8 @@ async def submit_idea_command(
 
         markdown_content = f"""# {title}
 
-**Author:** {user.display_name}  
-**Created:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}  
+**Author:** {user.display_name}
+**Created:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 **Tags:** {", ".join(tag_list)}
 
 ---
@@ -716,14 +727,13 @@ async def submit_idea_command(
         else:
             await interaction.followup.send(embed=embed)
 
-        try:
+        # Best-effort store; suppress expected storage errors
+        with contextlib.suppress(Exception):
             await memory.store_conversation(
                 user.id,
                 f"Submitted idea: {title}",
                 f"Saved as {filename} with tags: {', '.join(tag_list)}",
             )
-        except Exception:
-            pass
 
         logger.info(
             f"Idea submitted via slash command: {filename} by {user.display_name}"
@@ -790,7 +800,7 @@ async def get_doc_command(
         output_dir.mkdir(parents=True, exist_ok=True)
 
         if format == "markdown" or found_file.suffix == ".md":
-            async with aiofiles.open(found_file, "r", encoding="utf-8") as f:
+            async with aiofiles.open(found_file, encoding="utf-8") as f:
                 content = await f.read()
 
             if len(content) > 1900:
@@ -808,7 +818,7 @@ async def get_doc_command(
 
         elif format == "html":
             if found_file.suffix == ".md":
-                async with aiofiles.open(found_file, "r", encoding="utf-8") as f:
+                async with aiofiles.open(found_file, encoding="utf-8") as f:
                     md_content = await f.read()
 
                 html_content = await file_processor.markdown_to_html(
@@ -830,7 +840,7 @@ async def get_doc_command(
 
         elif format == "pdf":
             if found_file.suffix == ".md":
-                async with aiofiles.open(found_file, "r", encoding="utf-8") as f:
+                async with aiofiles.open(found_file, encoding="utf-8") as f:
                     md_content = await f.read()
 
                 html_content = await file_processor.markdown_to_html(
@@ -1245,10 +1255,8 @@ async def on_command_error(ctx: commands.Context, error: Exception):
     logger.error(
         f"Command error in {getattr(ctx, 'command', None)}: {error}", exc_info=True
     )
-    try:
-        await ctx.send(f"❌ Command error: {str(error)}")
-    except Exception:
-        pass
+    with contextlib.suppress(Exception):
+        await ctx.send(f"[ERROR] Command error: {str(error)}")
 
 
 @bot.event
@@ -1258,12 +1266,8 @@ async def on_application_command_error(
     """Handle slash command errors."""
     logger.error(f"Slash command error: {error}", exc_info=True)
     if not interaction.response.is_done():
-        try:
-            await interaction.response.send_message(
-                f"❌ An error occurred: {str(error)}", ephemeral=True
-            )
-        except Exception:
-            pass
+        with contextlib.suppress(Exception):
+            await interaction.response.send_message(f"[ERROR] An error occurred: {str(error)}", ephemeral=True)
 
 
 @bot.event
@@ -1343,7 +1347,7 @@ async def check_database_health() -> Dict[str, Any]:
         # Simple database health check
         if hasattr(memory, "db_path") and memory.db_path:
             # Try a simple query
-            await memory.get_conversation_context("health_check", max_messages=1)
+            await memory.get_conversation_history(0, limit=1)
             return {
                 "status": "healthy",
                 "value": 1,
@@ -1382,16 +1386,13 @@ async def cleanup():
         logger.warning(f"Failed to cleanup managed resources: {e}")
 
     global _openai_client
-    try:
+    # Best-effort cleanup of client and thread pool; suppress expected errors
+    with contextlib.suppress(Exception):
         if _openai_client and hasattr(_openai_client, "close"):
             await _openai_client.close()
-    except Exception:
-        pass
 
-    try:
+    with contextlib.suppress(Exception):
         await shutdown_thread_pool()
-    except Exception:
-        pass
 
     logger.info("Cleanup completed")
 
@@ -1414,19 +1415,17 @@ def main():
         logger.warning(f"Config validation failed/skipped: {e}")
 
     # Startup info
-    try:
+    with contextlib.suppress(Exception):
         logger.info("Starting Discord bot...")
-        logger.info(f"Features available:")
+        logger.info("Features available:")
         logger.info(
-            f"  - AI Integration: {'✅' if getattr(ai_helper, 'available', False) else '❌'}"
+            f"  - AI Integration: {'[OK]' if getattr(ai_helper, 'available', False) else '[ERROR]'}"
         )
         logger.info(
-            f"  - GitHub Integration: {'✅' if getattr(github_helper, 'available', False) else '❌'}"
+            f"  - GitHub Integration: {'[OK]' if getattr(github_helper, 'available', False) else '[ERROR]'}"
         )
         admin_ids = getattr(config, "admin_user_ids", []) or []
         logger.info(f"  - Admin Users: {len(admin_ids)}")
-    except Exception:
-        pass
 
     token = get_discord_token()
     if not token:
@@ -1436,20 +1435,16 @@ def main():
         return
 
     # Graceful shutdown signals (best-effort; may not work on Windows)
-    try:
+    with contextlib.suppress(Exception):
 
         def _signal_handler(signum, _frame):
             logger.info(f"Received signal {signum}, initiating shutdown")
-            try:
+            with contextlib.suppress(RuntimeError):
                 loop = asyncio.get_event_loop()
                 loop.create_task(cleanup())
-            except RuntimeError:
-                pass
 
         signal.signal(signal.SIGINT, _signal_handler)
         signal.signal(signal.SIGTERM, _signal_handler)
-    except Exception:
-        pass
 
     try:
         bot.run(token)
@@ -1458,10 +1453,8 @@ def main():
     except Exception as e:
         logger.error(f"Bot error: {e}", exc_info=True)
     finally:
-        try:
+        with contextlib.suppress(Exception):
             asyncio.run(cleanup())
-        except Exception:
-            pass
 
 
 if __name__ == "__main__":

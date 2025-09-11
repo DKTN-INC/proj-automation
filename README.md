@@ -110,6 +110,22 @@ brew install wkhtmltopdf tesseract
 # Windows
 # Download from: https://wkhtmltopdf.org/downloads.html
 # Download tesseract from: https://github.com/UB-Mannheim/tesseract/wiki
+
+### Optional: FFmpeg for audio processing (Windows)
+
+If you use audio features locally or on Windows CI, ffmpeg must be available on PATH. A helper script is provided to install ffmpeg for developers or CI runners on Windows.
+
+From the repository root run:
+
+```powershell
+./scripts/install_ffmpeg.ps1
+```
+
+This script will attempt a user-level install via Scoop, fall back to Chocolatey, and finally download a portable static build and add it to the user PATH.
+
+CI integration: the GitHub Actions workflow includes a Windows runner step that runs this script before tests to ensure ffmpeg is present on Windows runners.
+
+Note: if Chocolatey is used, it may require administrator privileges on the runner or machine. The installer script falls back to a portable download when admin rights are not available.
 ```
 
 ### 2. Configure Discord Bot

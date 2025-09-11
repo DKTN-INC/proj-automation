@@ -80,7 +80,7 @@ class DiscordWebhookSender:
                 "title": "📋 Idea Sheet Published",
                 "description": f"**File:** {pdf_file.name}\n**Size:** {file_size / 1024:.1f} KB",
                 "color": 0x3498DB,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now().isoformat(),
                 "footer": {"text": "Project Automation Platform"},
                 "fields": [
                     {
@@ -148,6 +148,11 @@ class DiscordWebhookSender:
 
             try:
                 response = self.session.post(self.webhook_url, json=payload, timeout=30)
+                # Log non-successful status codes for batch notification
+                if response is not None and response.status_code != 204:
+                    logger.warning(
+                        f"Batch notification returned unexpected status: {response.status_code} - {getattr(response, 'text', '')}"
+                    )
             except Exception as e:
                 logger.warning(f"Failed to send batch notification: {e}")
 

@@ -16,7 +16,6 @@ All components are designed to degrade gracefully when optional dependencies are
 
 import hashlib
 import json
-import os
 import re
 import tempfile
 from pathlib import Path
@@ -47,7 +46,24 @@ except ImportError:
 
 # Audio processing
 try:
-    from pydub import AudioSegment
+    import warnings
+    import shutil
+
+    # Import pydub while temporarily suppressing RuntimeWarnings that occur
+    # when ffmpeg/avconv are not present on the system. After import, try
+    # to locate ffmpeg on PATH and assign it so pydub doesn't warn later.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        from pydub import AudioSegment
+
+    # If ffmpeg is available on PATH, point pydub to it explicitly.
+    ffmpeg_path = shutil.which("ffmpeg") or shutil.which("ffmpeg.exe")
+    if ffmpeg_path:
+        try:
+            AudioSegment.converter = ffmpeg_path
+        except Exception:
+            # If assignment fails, don't crash import; pydub will fallback.
+            pass
 
     AUDIO_AVAILABLE = True
 except ImportError:
@@ -437,7 +453,8 @@ class AIHelper:
             return "Audio transcription not available (OpenAI API key required)"
 
         try:
-            with open(audio_path, "rb") as audio_file:
+            # Use Path.open for better path handling
+            with audio_path.open("rb") as audio_file:
                 transcript = await openai.Audio.atranscribe(
                     model=getattr(config, "whisper_model", "whisper-1"), file=audio_file
                 )
@@ -572,9 +589,12 @@ class FileProcessor:
         if not PDF_AVAILABLE:
             # Create a simple fallback text file
             try:
-                with open(output_path.with_suffix(".txt"), "w", encoding="utf-8") as f:
-                    f.write("PDF generation not available - pdfkit not installed\n\n")
-                    f.write(html_content)
+                p = output_path.with_suffix(".txt")
+                p.write_text(
+                    "PDF generation not available - pdfkit not installed\n\n"
+                    + html_content,
+                    encoding="utf-8",
+                )
             except Exception:
                 pass
             return False
@@ -616,7 +636,7 @@ class CodeAnalyzer:
             )
 
             with contextlib.suppress(Exception):
-                os.unlink(temp_path)
+                Path(temp_path).unlink()
 
             if result.returncode == 0:
                 return ["✅ No linting issues found!"]

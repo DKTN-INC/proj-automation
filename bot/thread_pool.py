@@ -292,8 +292,9 @@ def parse_discord_messages(messages: list) -> dict:
             try:
                 hour = timestamp.hour
                 hourly_activity[hour] += 1
-            except:
-                pass
+            except Exception:
+                # Ignore malformed timestamps
+                continue
 
     # Calculate averages and insights
     total_messages = sum(stats["message_count"] for stats in user_stats.values())
