@@ -52,3 +52,5 @@ This job installs system packages and runs `scripts/check_native_deps.py --fail-
 ## Optional Secret Presence Check
 
 An optional `secret-presence-check` job can be enabled by setting the workflow environment variable `ENFORCE_SECRET_PRESENCE=true`. When enabled, the job will fail early if required secrets (for example `DISCORD_WEBHOOK`) are not configured in the repository secrets. This is intended to avoid runtime failures where workflows assume secrets exist.
+
+Note: enforcement is skipped for forked pull requests to allow external contributors to open PRs without having repository secrets configured. The check will still run for PRs originating from branches in the main repository and for push events if enabled.

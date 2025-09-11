@@ -22,7 +22,8 @@ env:
 jobs:
   # Optional check that required secrets are present before running CI heavy jobs
   secret-presence-check:
-    if: env.ENFORCE_SECRET_PRESENCE == 'true'
+    # Run only when ENFORCE_SECRET_PRESENCE is true and skip enforcement for forked pull requests
+    if: "env.ENFORCE_SECRET_PRESENCE == 'true' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
