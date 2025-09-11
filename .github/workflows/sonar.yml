@@ -1,4 +1,4 @@
-name: SonarCloud Scan
+name: Produce coverage for Sonar automatic scan
 
 on:
   pull_request:
@@ -7,29 +7,13 @@ on:
     branches: [ main ]
 
 jobs:
-  sonar:
-    name: SonarCloud Analysis
+  coverage:
+    name: Produce coverage for Sonar automatic scan
     runs-on: ubuntu-latest
-    env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Ensure SONAR_TOKEN is present
-        run: |
-          if [ -z "${{ secrets.SONAR_TOKEN }}" ]; then
-            echo "Required secret SONAR_TOKEN is missing. Set it in repository settings -> Secrets." >&2
-            exit 1
-          else
-            echo "SONAR_TOKEN found"
-          fi
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
@@ -44,19 +28,17 @@ jobs:
 
       - name: Run tests and generate coverage
         run: |
-          # Generate coverage.xml for SonarCloud
+          # Generate coverage.xml for Sonar automatic scanning
           pytest --maxfail=1 --disable-warnings -q --cov=. --cov-report=xml:coverage.xml || true
 
-      - name: Run SonarCloud analysis (official action)
-        uses: SonarSource/sonarcloud-github-action@v1
-        with:
-          organization: ${{ secrets.SONAR_ORG }}
-          token: ${{ secrets.SONAR_TOKEN }}
-          projectKey: ${{ secrets.SONAR_PROJECT_KEY }}
-          # The action will locate the coverage.xml produced earlier
-          extra-properties: |
-            sonar.python.coverage.reportPaths=coverage.xml
-
-      - name: Upload Sonar report (optional)
+      - name: Upload coverage artifact for Sonar
         if: always()
-        run: echo "Sonar scan completed. Check SonarCloud/SonarQube UI for results."
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          retention-days: 30
+
+      - name: Notify
+        if: always()
+        run: echo "Coverage artifact uploaded. Sonar automatic scanning (if enabled) should pick up coverage.xml."
