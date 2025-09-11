@@ -63,6 +63,11 @@ jobs:
           curl -sSLo "$SCANNER_ZIP" "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/${SCANNER_ZIP}"
           unzip -q "$SCANNER_ZIP"
           SCANNER_DIR="sonar-scanner-${SCANNER_VERSION}-linux"
+          # remove any bundled JRE shipped with the scanner to force use of the runner's JDK
+          if [ -d "$SCANNER_DIR/jre" ]; then
+            rm -rf "$SCANNER_DIR/jre"
+          fi
+          # export scanner location for subsequent steps
           echo "SONAR_SCANNER_HOME=$PWD/$SCANNER_DIR" >> $GITHUB_ENV
           echo "$PWD/$SCANNER_DIR/bin" >> $GITHUB_PATH
 
@@ -71,7 +76,13 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           set -o pipefail
+          echo "== java diagnostics =="
+          which java || true
+          java -version || true
+          echo "JAVA_HOME=$JAVA_HOME"
+          echo "SONAR_SCANNER_HOME=$SONAR_SCANNER_HOME"
           sonar-scanner \
+            -X \
             -Dsonar.organization=${{ secrets.SONAR_ORG }} \
             -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
             -Dsonar.sources=. \
