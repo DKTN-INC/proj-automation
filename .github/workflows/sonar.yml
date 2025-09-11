@@ -55,18 +55,30 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-sonar-
 
-      - name: SonarCloud Scan
-        # use a stable released tag instead of 'master'
-        uses: SonarSource/sonarcloud-github-action@v1
-        with:
-          args: >
-            -Dsonar.organization=${{ secrets.SONAR_ORG }}
-            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
-            -Dsonar.sources=.
-            -Dsonar.tests=tests
-            -Dsonar.test.inclusions=tests/**
-            -Dsonar.python.coverage.reportPaths=coverage.xml
-            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL || 'https://sonarcloud.io' }}
+      - name: Download SonarScanner CLI
+        run: |
+          # Use a stable scanner version compatible with SonarCloud
+          SCANNER_VERSION=4.8.1.3023
+          SCANNER_ZIP="sonar-scanner-cli-${SCANNER_VERSION}-linux.zip"
+          curl -sSLo "$SCANNER_ZIP" "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/${SCANNER_ZIP}"
+          unzip -q "$SCANNER_ZIP"
+          SCANNER_DIR="sonar-scanner-${SCANNER_VERSION}-linux"
+          echo "SONAR_SCANNER_HOME=$PWD/$SCANNER_DIR" >> $GITHUB_ENV
+          echo "$PWD/$SCANNER_DIR/bin" >> $GITHUB_PATH
+
+      - name: Run SonarScanner CLI
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          set -o pipefail
+          sonar-scanner \
+            -Dsonar.organization=${{ secrets.SONAR_ORG }} \
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
+            -Dsonar.sources=. \
+            -Dsonar.tests=tests \
+            -Dsonar.test.inclusions=tests/** \
+            -Dsonar.python.coverage.reportPaths=coverage.xml \
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL || 'https://sonarcloud.io' }} \
             -Dsonar.login=${{ secrets.SONAR_TOKEN }}
 
       - name: Upload Sonar report (optional)
