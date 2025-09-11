@@ -309,7 +309,20 @@ def circuit_breaker(name: str, config: Optional[CircuitConfig] = None):
 
         @wraps(func)
         def sync_wrapper(*args, **kwargs) -> T:
-            return asyncio.run(breaker.call(func, *args, **kwargs))
+            # Avoid calling asyncio.run if an event loop is already running
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop and loop.is_running():
+                # Running loop present; calling asyncio.run would fail. Recommend
+                # using the async variant or running in executor.
+                raise RuntimeError(
+                    "Cannot call synchronous wrapper while an event loop is running. Use the async variant instead."
+                )
+            else:
+                return asyncio.run(breaker.call(func, *args, **kwargs))
 
         if asyncio.iscoroutinefunction(func):
             return async_wrapper

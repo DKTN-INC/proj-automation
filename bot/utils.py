@@ -18,6 +18,8 @@ import hashlib
 import json
 import re
 import tempfile
+import os
+import asyncio as _asyncio
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -581,7 +583,17 @@ class FileProcessor:
 </body>
 </html>
         """)
-        return template.render(title=title, content=html_content)
+        rendered = template.render(title=title, content=html_content)
+
+        # Security: remove any <script> tags from rendered HTML to avoid executing
+        # injected scripts when HTML is viewed or converted to PDF.
+        try:
+            # A lightweight removal of script tags; avoid heavy deps here.
+            rendered = re.sub(r"<script[\s\S]*?>[\s\S]*?<\/script>", "", rendered, flags=re.IGNORECASE)
+        except Exception:
+            pass
+
+        return rendered
 
     @staticmethod
     async def html_to_pdf(html_content: str, output_path: Path) -> bool:
@@ -602,10 +614,10 @@ class FileProcessor:
         try:
             options = {
                 "page-size": "A4",
-                "margin-top": "0.75in",
-                "margin-right": "0.75in",
-                "margin-bottom": "0.75in",
-                "margin-left": "0.75in",
+                "margin-top": PDF_MARGIN,
+                "margin-right": PDF_MARGIN,
+                "margin-bottom": PDF_MARGIN,
+                "margin-left": PDF_MARGIN,
                 "encoding": "UTF-8",
                 "no-outline": None,
             }
@@ -618,6 +630,9 @@ class FileProcessor:
 # -----------------------------------------------------------------------------
 # Code Analyzer
 # -----------------------------------------------------------------------------
+PDF_MARGIN = "0.75in"
+
+
 class CodeAnalyzer:
     """Analyzes code for issues and suggestions."""
 
@@ -625,24 +640,42 @@ class CodeAnalyzer:
     async def lint_python_code(code: str) -> List[str]:
         """Lint Python code using flake8."""
         try:
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
-                f.write(code)
-                temp_path = f.name
+            # Create a secure temp file path
+            fd, temp_path = tempfile.mkstemp(suffix=".py")
+            os.close(fd)
 
-            import subprocess
+            # Write file asynchronously to avoid blocking the event loop
+            try:
+                import aiofiles
 
-            result = subprocess.run(
-                ["flake8", "--select=E,W,F", temp_path], capture_output=True, text=True
-            )
+                async with aiofiles.open(temp_path, "w", encoding="utf-8") as f:
+                    await f.write(code)
+            except Exception:
+                # Fallback to synchronous write if aiofiles not available
+                with open(temp_path, "w", encoding="utf-8") as f:
+                    f.write(code)
+
+            # Use asyncio subprocess to avoid blocking
+            proc = await _asyncio.create_subprocess_exec(
+                "flake8",
+                "--select=E,W,F",
+                temp_path,
+                stdout=_asyncio.subprocess.PIPE,
+                stderr=_asyncio.subprocess.PIPE,
+                )
+
+            stdout, _ = await proc.communicate()
 
             with contextlib.suppress(Exception):
                 Path(temp_path).unlink()
 
-            if result.returncode == 0:
-                return ["[SUCCESS] No linting issues found!"]
+<<<<<<< HEAD
+            if proc.returncode == 0:
+                return ["✅ No linting issues found!"]
             else:
+                output = (stdout or b"").decode(errors="replace")
                 issues: List[str] = []
-                for line in result.stdout.splitlines():
+                for line in output.splitlines():
                     if line.strip():
                         parts = line.split(":", 3)
                         if len(parts) >= 4:
@@ -685,11 +718,17 @@ class GitHubHelper:
             return "GitHub integration not available (token required)"
 
         try:
-            repo = self.github.get_repo(repo_name)
-            pr = repo.create_pull(
-                title=title, body=body, head=head_branch, base=base_branch
-            )
-            return f"[SUCCESS] Pull request created: {pr.html_url}"
+            loop = _asyncio.get_event_loop()
+
+            def _create():
+                repo = self.github.get_repo(repo_name)
+                pr = repo.create_pull(
+                    title=title, body=body, head=head_branch, base=base_branch
+                )
+                return pr.html_url
+
+            pr_url = await loop.run_in_executor(None, _create)
+            return f"✅ Pull request created: {pr_url}"
         except Exception as e:
             return f"[ERROR] Failed to create PR: {str(e)}"
 
@@ -700,21 +739,27 @@ class GitHubHelper:
         if not self.available or not self.github:
             return []
         try:
-            repo = self.github.get_repo(repo_name)
-            issues = repo.get_issues(state=state)
-            result: List[Dict[str, Any]] = []
-            for i, issue in enumerate(issues):
-                if i >= limit:
-                    break
-                result.append(
-                    {
-                        "number": issue.number,
-                        "title": issue.title,
-                        "url": issue.html_url,
-                        "state": issue.state,
-                        "created_at": issue.created_at.isoformat(),
-                    }
-                )
+            loop = _asyncio.get_event_loop()
+
+            def _fetch():
+                repo = self.github.get_repo(repo_name)
+                issues = repo.get_issues(state=state)
+                result: List[Dict[str, Any]] = []
+                for i, issue in enumerate(issues):
+                    if i >= limit:
+                        break
+                    result.append(
+                        {
+                            "number": issue.number,
+                            "title": issue.title,
+                            "url": issue.html_url,
+                            "state": issue.state,
+                            "created_at": issue.created_at.isoformat(),
+                        }
+                    )
+                return result
+
+            result = await loop.run_in_executor(None, _fetch)
             return result
         except Exception:
             return []

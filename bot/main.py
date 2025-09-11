@@ -377,19 +377,22 @@ async def handle_admin_file_upload(message: discord.Message):
     for attachment in message.attachments:
         # Best-effort: suppress expected transient errors during admin uploads
         with contextlib.suppress(Exception):
+            # Sanitize filename to prevent path traversal and unsafe characters
+            raw_name = Path(attachment.filename).name
+            # allow basic filename chars, replace others with underscore
+            safe_name = __import__("re").sub(r"[^A-Za-z0-9._\-]", "_", raw_name)[:100]
+
             file_path = (
                 Path(getattr(config, "helpdocs_dir", Path("docs/helpdocs")))
-                / attachment.filename
+                / safe_name
             )
             async with aiofiles.open(file_path, "wb") as f:
                 data = await attachment.read()
                 await f.write(data)
 
-            await message.reply(
-                f"[OK] File `{attachment.filename}` uploaded to helpdocs/"
-            )
+            await message.reply(f"[OK] File `{safe_name}` uploaded to helpdocs/")
             logger.info(
-                f"Admin {user.display_name} uploaded {attachment.filename} to helpdocs"
+                f"Admin {user.display_name} uploaded {safe_name} to helpdocs"
             )
 
 
@@ -801,6 +804,21 @@ async def get_doc_command(
                 await interaction.followup.send(
                     f"[ERROR] Document '{filename}' not found."
                 )
+            return
+
+        # Security: ensure the resolved file is within allowed directories
+        allowed_dirs = [
+            Path(getattr(config, "ideasheets_dir", Path("docs/ideasheets"))).resolve(),
+            Path(getattr(config, "helpdocs_dir", Path("docs/helpdocs"))).resolve(),
+            Path(getattr(config, "output_dir", Path("output"))).resolve(),
+        ]
+        try:
+            resolved = found_file.resolve()
+            if not any(str(resolved).startswith(str(d)) for d in allowed_dirs):
+                await interaction.followup.send("❌ Access to the requested file is not allowed.")
+                return
+        except Exception:
+            await interaction.followup.send("❌ Unable to resolve requested file path.")
             return
 
         output_dir = Path(getattr(config, "output_dir", Path("output")))
