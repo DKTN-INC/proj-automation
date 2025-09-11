@@ -17,7 +17,7 @@ env:
   # Toggleable flag to enable a fail-fast WeasyPrint native libs check
   FAIL_ON_MISSING_WEASY: "false"
   # Toggleable flag to enable secret presence enforcement in CI
-  ENFORCE_SECRET_PRESENCE: "false"
+  ENFORCE_SECRET_PRESENCE: "true"
 
 jobs:
   # Optional check that required secrets are present before running CI heavy jobs
