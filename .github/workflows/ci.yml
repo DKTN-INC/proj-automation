@@ -16,8 +16,34 @@ env:
   PYTHON_VERSION: "3.13"
   # Toggleable flag to enable a fail-fast WeasyPrint native libs check
   FAIL_ON_MISSING_WEASY: "false"
+  # Toggleable flag to enable secret presence enforcement in CI
+  ENFORCE_SECRET_PRESENCE: "false"
 
 jobs:
+  # Optional check that required secrets are present before running CI heavy jobs
+  secret-presence-check:
+    if: env.ENFORCE_SECRET_PRESENCE == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check required secrets are present
+        run: |
+          missing=()
+          if [ -z "${{ secrets.DISCORD_WEBHOOK }}" ]; then
+            echo "DISCORD_WEBHOOK is missing"
+            missing+=(DISCORD_WEBHOOK)
+          fi
+          # If S3 uploads are used in your workflow, ensure required AWS secrets exist
+          if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] || [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
+            echo "AWS credentials missing (optional unless using S3 presigned uploads)"
+          fi
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "Required secrets missing: ${missing[*]}"
+            exit 1
+          fi
+
   # Optional fail-fast job: checks WeasyPrint native runtime on ubuntu-latest
   weasyprint-check:
     if: "(github.event_name == 'workflow_dispatch' && github.event.inputs.fail_on_missing_weasy == 'true') || env.FAIL_ON_MISSING_WEASY == 'true'"

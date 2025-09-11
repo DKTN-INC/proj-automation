@@ -48,3 +48,7 @@ The repository CI now includes an optional fail-fast job that validates the nati
 - Or set the repository/workflow environment variable `FAIL_ON_MISSING_WEASY=true` to enable the check on pushes and PRs.
 
 This job installs system packages and runs `scripts/check_native_deps.py --fail-on-missing`. It is intended to reduce noise by remaining off by default while allowing strict validation when desired.
+
+## Optional Secret Presence Check
+
+An optional `secret-presence-check` job can be enabled by setting the workflow environment variable `ENFORCE_SECRET_PRESENCE=true`. When enabled, the job will fail early if required secrets (for example `DISCORD_WEBHOOK`) are not configured in the repository secrets. This is intended to avoid runtime failures where workflows assume secrets exist.
