@@ -79,9 +79,19 @@ jobs:
           echo "== java diagnostics =="
           which java || true
           java -version || true
+          # ensure runner JDK is first on PATH for the scanner
+          if [ -n "$JAVA_HOME" ]; then
+            export PATH="$JAVA_HOME/bin:$PATH"
+          fi
+          echo "after PATH update: $(which java || true)"
+          java -version || true
           echo "JAVA_HOME=$JAVA_HOME"
           echo "SONAR_SCANNER_HOME=$SONAR_SCANNER_HOME"
-          sonar-scanner \
+          echo "Listing scanner dir:"
+          ls -la "$SONAR_SCANNER_HOME" || true
+          echo "Invoking scanner via runner java to avoid wrapper/runtime detection issues"
+          # Run the scanner using the runner's java executable directly to guarantee the correct JVM
+          "$JAVA_HOME/bin/java" -cp "$SONAR_SCANNER_HOME/lib/*" org.sonarsource.scanner.cli.Main \
             -X \
             -Dsonar.organization=${{ secrets.SONAR_ORG }} \
             -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
