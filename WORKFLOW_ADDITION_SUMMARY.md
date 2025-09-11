@@ -39,3 +39,12 @@ The new workflow provides:
 - Team-specific standup generation  
 - Comprehensive logging of standup metadata
 - Integration with GitHub Actions ecosystem using standard checkout action
+
+## Optional WeasyPrint fail-fast check (added to CI)
+
+The repository CI now includes an optional fail-fast job that validates the native runtime required by WeasyPrint (GTK/Cairo/Pango) on `ubuntu-latest`.
+
+- Toggle via workflow dispatch input `fail_on_missing_weasy: true` when running the workflow manually.
+- Or set the repository/workflow environment variable `FAIL_ON_MISSING_WEASY=true` to enable the check on pushes and PRs.
+
+This job installs system packages and runs `scripts/check_native_deps.py --fail-on-missing`. It is intended to reduce noise by remaining off by default while allowing strict validation when desired.

@@ -6,11 +6,43 @@ on:
   pull_request:
     branches: [ main, develop ]
   workflow_dispatch:
+    inputs:
+      fail_on_missing_weasy:
+        description: 'If true, run the WeasyPrint fail-fast native libs check on ubuntu-latest'
+        required: false
+        default: 'false'
 
 env:
   PYTHON_VERSION: "3.13"
+  # Toggleable flag to enable a fail-fast WeasyPrint native libs check
+  FAIL_ON_MISSING_WEASY: "false"
 
 jobs:
+  # Optional fail-fast job: checks WeasyPrint native runtime on ubuntu-latest
+  weasyprint-check:
+    if: "(github.event_name == 'workflow_dispatch' && github.event.inputs.fail_on_missing_weasy == 'true') || env.FAIL_ON_MISSING_WEASY == 'true'"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install system dependencies for WeasyPrint
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y libpango-1.0-0 libgdk-pixbuf2.0-0 libpangocairo-1.0-0 libcairo2
+
+      - name: Install Python requirements
+        run: python -m pip install --upgrade pip; pip install -r requirements.txt
+
+      - name: Fail-fast WeasyPrint check
+        run: |
+          python scripts/check_native_deps.py --fail-on-missing
+
   lint-and-format:
     name: Lint and Format
     runs-on: ubuntu-latest
