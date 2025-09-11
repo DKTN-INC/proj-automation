@@ -14,14 +14,47 @@ Includes:
 All components are designed to degrade gracefully when optional dependencies are missing.
 """
 
+import contextlib
 import hashlib
 import json
+import os
 import re
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import aiosqlite
+import markdown
+from jinja2 import Template
+
+
+# Windows console emoji fallbacks to prevent UnicodeEncodeError
+def get_console_safe_emoji(emoji: str, fallback: str) -> str:
+    """
+    Returns emoji if console supports Unicode, otherwise returns ASCII fallback.
+    This prevents UnicodeEncodeError on older Windows consoles.
+    """
+    # Check if we're on Windows with potentially problematic console
+    if (
+        sys.platform.startswith("win")
+        and os.environ.get("PYTHONIOENCODING") is None
+        and not hasattr(sys.stdout, "buffer")
+    ):
+        return fallback
+    
+    try:
+        # Test if we can encode the emoji
+        emoji.encode(sys.stdout.encoding or "utf-8")
+        return emoji
+    except (UnicodeEncodeError, LookupError):
+        return fallback
+
+
+# Console-safe emoji constants
+EMOJI_SUCCESS = get_console_safe_emoji("✅", "[OK]")
+EMOJI_ERROR = get_console_safe_emoji("❌", "[ERROR]")
+EMOJI_PAGE = get_console_safe_emoji("📄", "[Page]")
 
 
 # Optional dependencies and availability flags
@@ -87,10 +120,6 @@ except ImportError:
     WEB_AVAILABLE = False
 
 # Markdown / PDF
-import contextlib
-
-import markdown
-from jinja2 import Template
 
 
 try:
@@ -283,11 +312,11 @@ class MessageChunker:
         result: List[str] = []
 
         for i, chunk in enumerate(chunks, 1):
-            indicator = f"📄 Page {i}/{total}\n\n"
+            indicator = f"{EMOJI_PAGE} Page {i}/{total}\n\n"
             if len(chunk) + len(indicator) <= MessageChunker.MAX_MESSAGE_LENGTH:
                 result.append(indicator + chunk)
             else:
-                indicator_tail = f"\n\n📄 Page {i}/{total}"
+                indicator_tail = f"\n\n{EMOJI_PAGE} Page {i}/{total}"
                 max_content_length = MessageChunker.MAX_MESSAGE_LENGTH - len(
                     indicator_tail
                 )
@@ -639,7 +668,7 @@ class CodeAnalyzer:
                 Path(temp_path).unlink()
 
             if result.returncode == 0:
-                return ["✅ No linting issues found!"]
+                return [f"{EMOJI_SUCCESS} No linting issues found!"]
             else:
                 issues: List[str] = []
                 for line in result.stdout.splitlines():
@@ -650,11 +679,11 @@ class CodeAnalyzer:
                             col_num = parts[2]
                             message = parts[3].strip()
                             issues.append(f"Line {line_num}:{col_num} - {message}")
-                return issues if issues else ["❌ Linting failed"]
+                return issues if issues else [f"{EMOJI_ERROR} Linting failed"]
         except FileNotFoundError:
-            return ["❌ flake8 not installed - install with: pip install flake8"]
+            return [f"{EMOJI_ERROR} flake8 not installed - install with: pip install flake8"]
         except Exception as e:
-            return [f"❌ Linting error: {str(e)}"]
+            return [f"{EMOJI_ERROR} Linting error: {str(e)}"]
 
 
 # -----------------------------------------------------------------------------
@@ -689,9 +718,9 @@ class GitHubHelper:
             pr = repo.create_pull(
                 title=title, body=body, head=head_branch, base=base_branch
             )
-            return f"✅ Pull request created: {pr.html_url}"
+            return f"{EMOJI_SUCCESS} Pull request created: {pr.html_url}"
         except Exception as e:
-            return f"❌ Failed to create PR: {str(e)}"
+            return f"{EMOJI_ERROR} Failed to create PR: {str(e)}"
 
     async def get_issues(
         self, repo_name: str, state: str = "open", limit: int = 5

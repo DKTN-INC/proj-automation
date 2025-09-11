@@ -1346,7 +1346,7 @@ async def check_database_health() -> Dict[str, Any]:
     try:
         # Simple database health check
         if hasattr(memory, "db_path") and memory.db_path:
-            # Try a simple query
+            # Try a simple query to verify database connection
             await memory.get_conversation_history(0, limit=1)
             return {
                 "status": "healthy",
