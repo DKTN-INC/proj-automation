@@ -639,7 +639,7 @@ class CodeAnalyzer:
                 Path(temp_path).unlink()
 
             if result.returncode == 0:
-                return ["✅ No linting issues found!"]
+                return ["[SUCCESS] No linting issues found!"]
             else:
                 issues: List[str] = []
                 for line in result.stdout.splitlines():
@@ -650,11 +650,11 @@ class CodeAnalyzer:
                             col_num = parts[2]
                             message = parts[3].strip()
                             issues.append(f"Line {line_num}:{col_num} - {message}")
-                return issues if issues else ["❌ Linting failed"]
+                return issues if issues else ["[ERROR] Linting failed"]
         except FileNotFoundError:
-            return ["❌ flake8 not installed - install with: pip install flake8"]
+            return ["[ERROR] flake8 not installed - install with: pip install flake8"]
         except Exception as e:
-            return [f"❌ Linting error: {str(e)}"]
+            return [f"[ERROR] Linting error: {str(e)}"]
 
 
 # -----------------------------------------------------------------------------
@@ -689,9 +689,9 @@ class GitHubHelper:
             pr = repo.create_pull(
                 title=title, body=body, head=head_branch, base=base_branch
             )
-            return f"✅ Pull request created: {pr.html_url}"
+            return f"[SUCCESS] Pull request created: {pr.html_url}"
         except Exception as e:
-            return f"❌ Failed to create PR: {str(e)}"
+            return f"[ERROR] Failed to create PR: {str(e)}"
 
     async def get_issues(
         self, repo_name: str, state: str = "open", limit: int = 5

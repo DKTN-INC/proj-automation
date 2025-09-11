@@ -399,7 +399,7 @@ async def handle_dm_attachments(message: discord.Message):
             max_size = getattr(config, "max_file_size", 25 * 1024 * 1024)
             if attachment.size > max_size:
                 await message.reply(
-                    f"❌ File too large: {attachment.filename} ({attachment.size / 1024 / 1024:.1f}MB > 25MB)"
+                    f"[ERROR] File too large: {attachment.filename} ({attachment.size / 1024 / 1024:.1f}MB > 25MB)"
                 )
                 continue
 
@@ -423,7 +423,7 @@ async def handle_dm_attachments(message: discord.Message):
                     )
                     await message.reply(embed=embed)
                 else:
-                    await message.reply("❌ No text found in image")
+                    await message.reply("[ERROR] No text found in image")
 
             elif ctype.startswith("audio/"):
                 # Audio transcription
@@ -444,7 +444,7 @@ async def handle_dm_attachments(message: discord.Message):
                     with contextlib.suppress(TypeError, FileNotFoundError):
                         wav_path.unlink(missing_ok=True)  # type: ignore
                 else:
-                    await message.reply("❌ Failed to process audio file")
+                    await message.reply("[ERROR] Failed to process audio file")
 
             else:
                 await message.reply(f"❓ Unsupported file type: {attachment.filename}")
@@ -522,7 +522,7 @@ async def handle_markdown_intake(message: discord.Message):
 
         # Confirmation
         embed = discord.Embed(
-            title="✅ Idea Sheet Saved",
+            title="[SUCCESS] Idea Sheet Saved",
             description=f"**File:** `{filename}`\n**Tags:** {', '.join(tags)}",
             color=0x2ECC71,
             timestamp=datetime.utcnow(),
@@ -551,7 +551,7 @@ async def handle_markdown_intake(message: discord.Message):
         logger.info(f"Idea sheet saved: {filename} by {user.display_name}")
 
     except Exception as e:
-        await message.reply(f"❌ Failed to save idea sheet: {str(e)}")
+        await message.reply(f"[ERROR] Failed to save idea sheet: {str(e)}")
         logger.error(f"Markdown intake error: {e}")
 
 
@@ -611,7 +611,7 @@ async def analyze_code_in_message(message: discord.Message):
     for language, code in code_blocks:
         if language.lower() == "python" and len(code.strip()) > 50:
             issues = await code_analyzer.lint_python_code(code)
-            if len(issues) > 1 or (len(issues) == 1 and not issues[0].startswith("✅")):
+            if len(issues) > 1 or (len(issues) == 1 and not issues[0].startswith("[SUCCESS]")):
                 try:
                     thread = await message.create_thread(
                         name=f"Code Review - {message.author.display_name}",
@@ -622,7 +622,7 @@ async def analyze_code_in_message(message: discord.Message):
                         title="🔍 Code Analysis Results",
                         description="\n".join(issues[:10]),
                         color=0xE74C3C
-                        if any("❌" in issue for issue in issues)
+                        if any("[ERROR]" in issue for issue in issues)
                         else 0xF39C12,
                     )
 
@@ -710,7 +710,7 @@ async def submit_idea_command(
         pdf_success = await file_processor.html_to_pdf(html_content, pdf_path)
 
         embed = discord.Embed(
-            title="✅ Idea Submitted Successfully",
+            title="[SUCCESS] Idea Submitted Successfully",
             description=f"**Title:** {title}\n**File:** `{filename}`\n**Tags:** {', '.join(tag_list)}",
             color=0x2ECC71,
             timestamp=datetime.utcnow(),
@@ -740,7 +740,7 @@ async def submit_idea_command(
         )
 
     except Exception as e:
-        await interaction.followup.send(f"❌ Failed to submit idea: {str(e)}")
+        await interaction.followup.send(f"[ERROR] Failed to submit idea: {str(e)}")
         logger.error(f"Submit idea error: {e}")
 
 
@@ -793,7 +793,7 @@ async def get_doc_command(
                     f"❓ File not found. Did you mean one of these?\n{match_list}"
                 )
             else:
-                await interaction.followup.send(f"❌ Document '{filename}' not found.")
+                await interaction.followup.send(f"[ERROR] Document '{filename}' not found.")
             return
 
         output_dir = Path(getattr(config, "output_dir", Path("output")))
@@ -835,7 +835,7 @@ async def get_doc_command(
                 )
             else:
                 await interaction.followup.send(
-                    f"❌ Cannot convert {found_file.suffix} to HTML"
+                    f"[ERROR] Cannot convert {found_file.suffix} to HTML"
                 )
 
         elif format == "pdf":
@@ -856,14 +856,14 @@ async def get_doc_command(
                         file=discord.File(str(pdf_path)),
                     )
                 else:
-                    await interaction.followup.send("❌ Failed to generate PDF")
+                    await interaction.followup.send("[ERROR] Failed to generate PDF")
             else:
                 await interaction.followup.send(
-                    f"❌ Cannot convert {found_file.suffix} to PDF"
+                    f"[ERROR] Cannot convert {found_file.suffix} to PDF"
                 )
 
     except Exception as e:
-        await interaction.followup.send(f"❌ Error retrieving document: {str(e)}")
+        await interaction.followup.send(f"[ERROR] Error retrieving document: {str(e)}")
         logger.error(f"Get doc error: {e}")
 
 
@@ -909,7 +909,7 @@ async def ask_command(interaction: discord.Interaction, question: str):
                         chunks = chunker.add_chunk_indicators(chunks)
                     for i, chunk in enumerate(chunks):
                         if i == 0:
-                            await thread.send(f"🤖 **AI Suggestion:**\n{chunk}")
+                            await thread.send(f"[AI] **AI Suggestion:**\n{chunk}")
                         else:
                             await thread.send(chunk)
             except Exception as e:
@@ -1021,14 +1021,14 @@ async def summarize_command(
 
         if ai_summary:
             ai_embed = discord.Embed(
-                title="🤖 AI Summary", description=ai_summary, color=0x9B59B6
+                title="[AI] AI Summary", description=ai_summary, color=0x9B59B6
             )
             await interaction.followup.send(embed=ai_embed)
 
     except Exception as e:
         logger.error(f"Error in summarize command: {e}", exc_info=True)
         await interaction.followup.send(
-            f"❌ Sorry, I encountered an error while generating the summary: {str(e)}"
+            f"[ERROR] Sorry, I encountered an error while generating the summary: {str(e)}"
         )
 
 
@@ -1060,9 +1060,9 @@ async def health_command(interaction: discord.Interaction, detailed: bool = Fals
 
             # Overall status
             status_emoji = {
-                "healthy": "✅",
-                "warning": "⚠️",
-                "critical": "❌",
+                "healthy": "[OK]",
+                "warning": "[WARN]",
+                "critical": "[CRIT]",
                 "unknown": "❓",
             }
 
@@ -1097,7 +1097,7 @@ async def health_command(interaction: discord.Interaction, detailed: bool = Fals
 
                 embed.add_field(
                     name="Health Summary",
-                    value=f"✅ Healthy: {healthy_count}\n⚠️ Warning: {warning_count}\n❌ Critical: {critical_count}",
+                    value=f"[OK] Healthy: {healthy_count}\n[WARN] Warning: {warning_count}\n[CRIT] Critical: {critical_count}",
                     inline=False,
                 )
 
@@ -1137,14 +1137,14 @@ async def health_command(interaction: discord.Interaction, detailed: bool = Fals
 
         else:
             await interaction.followup.send(
-                "❌ Health monitoring is not available. Basic features only.",
+                "[ERROR] Health monitoring is not available. Basic features only.",
                 ephemeral=True,
             )
 
     except Exception as e:
         logger.error(f"Error in health command: {e}", exc_info=True)
         await interaction.followup.send(
-            f"❌ Error checking system health: {str(e)}", ephemeral=True
+            f"[ERROR] Error checking system health: {str(e)}", ephemeral=True
         )
 
 
@@ -1160,7 +1160,7 @@ async def create_pr_command(
 ):
     """Create a GitHub pull request."""
     if not getattr(github_helper, "available", False):
-        await ctx.send("❌ GitHub integration not available (token required)")
+        await ctx.send("[ERROR] GitHub integration not available (token required)")
         return
 
     try:
@@ -1174,7 +1174,7 @@ async def create_pr_command(
         )
         await ctx.send(result)
     except Exception as e:
-        await ctx.send(f"❌ Error creating PR: {str(e)}")
+        await ctx.send(f"[ERROR] Error creating PR: {str(e)}")
 
 
 @bot.command(name="google")
@@ -1205,10 +1205,10 @@ async def google_command(ctx: commands.Context, *, query: str):
             embed.set_footer(text=f"Requested by {ctx.author.display_name}")
             await ctx.send(embed=embed)
         else:
-            await ctx.send("❌ Search results unavailable at the moment")
+            await ctx.send("[ERROR] Search results unavailable at the moment")
 
     except Exception as e:
-        await ctx.send(f"❌ Search error: {str(e)}")
+        await ctx.send(f"[ERROR] Search error: {str(e)}")
 
 
 @bot.command(name="github_issues")
@@ -1217,7 +1217,7 @@ async def github_issues_command(
 ):
     """Get GitHub issues for a repository."""
     if not getattr(github_helper, "available", False):
-        await ctx.send("❌ GitHub integration not available (token required)")
+        await ctx.send("[ERROR] GitHub integration not available (token required)")
         return
 
     try:
@@ -1225,7 +1225,7 @@ async def github_issues_command(
 
         if issues:
             embed = discord.Embed(
-                title=f"📋 GitHub Issues: {repo_name}",
+                title=f"[ISSUES] GitHub Issues: {repo_name}",
                 description=f"Showing {len(issues)} {state} issues",
                 color=0xE74C3C if state == "open" else 0x2ECC71,
                 timestamp=datetime.utcnow(),
@@ -1240,10 +1240,10 @@ async def github_issues_command(
 
             await ctx.send(embed=embed)
         else:
-            await ctx.send(f"📭 No {state} issues found for {repo_name}")
+            await ctx.send(f"[INFO] No {state} issues found for {repo_name}")
 
     except Exception as e:
-        await ctx.send(f"❌ Error fetching issues: {str(e)}")
+        await ctx.send(f"[ERROR] Error fetching issues: {str(e)}")
 
 
 # -----------------------------------------------------------------------------

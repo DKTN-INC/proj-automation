@@ -11,10 +11,10 @@ class HelpCog(commands.Cog):
 
     @app_commands.command(name="help", description="Show help and common commands")
     async def help_cmd(self, interaction: discord.Interaction) -> None:
-        embed = discord.Embed(title="🤖 Bot Help & Commands", color=0x2B6CB0)
+        embed = discord.Embed(title="[BOT] Bot Help & Commands", color=0x2B6CB0)
 
         embed.add_field(
-            name="💬 AI Commands",
+            name="[AI] AI Commands",
             value="\n".join(
                 [
                     "/ask <question> – Get AI-powered answers",
@@ -26,7 +26,7 @@ class HelpCog(commands.Cog):
         )
 
         embed.add_field(
-            name="💼 Business Tools",
+            name="[BIZ] Business Tools",
             value="\n".join(
                 [
                     "/budget <data> – Analyze budget/spending data",
@@ -38,7 +38,7 @@ class HelpCog(commands.Cog):
         )
 
         embed.add_field(
-            name="📄 File & Document",
+            name="[DOC] File & Document",
             value="\n".join(
                 [
                     "DM files to bot – Process and store documents",
@@ -50,7 +50,7 @@ class HelpCog(commands.Cog):
         )
 
         embed.add_field(
-            name="🛠️ Utility",
+            name="[UTIL] Utility",
             value="\n".join(
                 [
                     "!lint <file> – Run code linting",
@@ -62,7 +62,7 @@ class HelpCog(commands.Cog):
         )
 
         embed.set_footer(
-            text="💡 Tip: Attach files with your commands when relevant | Use /capabilities for detailed feature list"
+            text="[TIP] Attach files with your commands when relevant | Use /capabilities for detailed feature list"
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
