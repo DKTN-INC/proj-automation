@@ -76,23 +76,12 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           set -o pipefail
-          echo "== java diagnostics =="
-          which java || true
-          java -version || true
-          # ensure runner JDK is first on PATH for the scanner
+          # Ensure runner JDK is preferred by prepending JAVA_HOME/bin if set
           if [ -n "$JAVA_HOME" ]; then
             export PATH="$JAVA_HOME/bin:$PATH"
           fi
-          echo "after PATH update: $(which java || true)"
-          java -version || true
-          echo "JAVA_HOME=$JAVA_HOME"
-          echo "SONAR_SCANNER_HOME=$SONAR_SCANNER_HOME"
-          echo "Listing scanner dir:"
-          ls -la "$SONAR_SCANNER_HOME" || true
-          echo "Invoking scanner via runner java to avoid wrapper/runtime detection issues"
-          # Run the scanner using the runner's java executable directly to guarantee the correct JVM
+          # Invoke the scanner via the runner's java executable to guarantee the correct JVM
           "$JAVA_HOME/bin/java" -cp "$SONAR_SCANNER_HOME/lib/*" org.sonarsource.scanner.cli.Main \
-            -X \
             -Dsonar.organization=${{ secrets.SONAR_ORG }} \
             -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
             -Dsonar.sources=. \
