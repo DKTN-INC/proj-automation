@@ -343,7 +343,6 @@ async def on_ready():
     except Exception as e:
         logger.error(f"Failed to sync commands: {e}", exc_info=True)
 
-
     async def handle_dm_message(message: discord.Message):
         """Handle direct messages for markdown intake and file uploads."""
         user = message.author
@@ -386,7 +385,9 @@ async def handle_admin_file_upload(message: discord.Message):
                 data = await attachment.read()
                 await f.write(data)
 
-            await message.reply(f"[OK] File `{attachment.filename}` uploaded to helpdocs/")
+            await message.reply(
+                f"[OK] File `{attachment.filename}` uploaded to helpdocs/"
+            )
             logger.info(
                 f"Admin {user.display_name} uploaded {attachment.filename} to helpdocs"
             )
@@ -455,7 +456,9 @@ async def handle_dm_attachments(message: discord.Message):
                     temp_path.unlink()
 
         except Exception as e:
-            await message.reply(f"[ERROR] Error processing {attachment.filename}: {str(e)}")
+            await message.reply(
+                f"[ERROR] Error processing {attachment.filename}: {str(e)}"
+            )
             logger.error(f"Attachment processing error: {e}")
 
 
@@ -611,7 +614,9 @@ async def analyze_code_in_message(message: discord.Message):
     for language, code in code_blocks:
         if language.lower() == "python" and len(code.strip()) > 50:
             issues = await code_analyzer.lint_python_code(code)
-            if len(issues) > 1 or (len(issues) == 1 and not issues[0].startswith("[SUCCESS]")):
+            if len(issues) > 1 or (
+                len(issues) == 1 and not issues[0].startswith("[SUCCESS]")
+            ):
                 try:
                     thread = await message.create_thread(
                         name=f"Code Review - {message.author.display_name}",
@@ -793,7 +798,9 @@ async def get_doc_command(
                     f"❓ File not found. Did you mean one of these?\n{match_list}"
                 )
             else:
-                await interaction.followup.send(f"[ERROR] Document '{filename}' not found.")
+                await interaction.followup.send(
+                    f"[ERROR] Document '{filename}' not found."
+                )
             return
 
         output_dir = Path(getattr(config, "output_dir", Path("output")))
@@ -1267,7 +1274,9 @@ async def on_application_command_error(
     logger.error(f"Slash command error: {error}", exc_info=True)
     if not interaction.response.is_done():
         with contextlib.suppress(Exception):
-            await interaction.response.send_message(f"[ERROR] An error occurred: {str(error)}", ephemeral=True)
+            await interaction.response.send_message(
+                f"[ERROR] An error occurred: {str(error)}", ephemeral=True
+            )
 
 
 @bot.event

@@ -15,8 +15,10 @@ import sys
 from typing import Dict, Optional
 
 import markdown
+
 try:
     import weasyprint
+
     WEASYPRINT_AVAILABLE = True
 except Exception:  # cffi/ctypes OSError when system libs missing
     weasyprint = None
