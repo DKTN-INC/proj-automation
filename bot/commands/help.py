@@ -11,20 +11,59 @@ class HelpCog(commands.Cog):
 
     @app_commands.command(name="help", description="Show help and common commands")
     async def help_cmd(self, interaction: discord.Interaction) -> None:
-        embed = discord.Embed(title="Help", color=0x2B6CB0)
+        embed = discord.Embed(title="[BOT] Bot Help & Commands", color=0x2B6CB0)
+
         embed.add_field(
-            name="Common",
+            name="[AI] AI Commands",
             value="\n".join(
                 [
-                    "/help – Show this help",
-                    "/capabilities – What I can do",
-                    "!lint <file> – Run lint",
-                    "!ocr <image> – OCR image",
+                    "/ask <question> – Get AI-powered answers",
+                    "/summarize <content> – Summarize text or files",
+                    "/capabilities – See all bot features",
                 ]
             ),
             inline=False,
         )
-        embed.set_footer(text="Tip: Attach files with your command when relevant.")
+
+        embed.add_field(
+            name="[BIZ] Business Tools",
+            value="\n".join(
+                [
+                    "/budget <data> – Analyze budget/spending data",
+                    "/campaign <product> – Generate marketing briefs",
+                    "/health – Check system status",
+                ]
+            ),
+            inline=False,
+        )
+
+        embed.add_field(
+            name="[DOC] File & Document",
+            value="\n".join(
+                [
+                    "DM files to bot – Process and store documents",
+                    "!getdoc <filename> – Retrieve stored documents",
+                    "Upload files – Admin users can upload help docs",
+                ]
+            ),
+            inline=False,
+        )
+
+        embed.add_field(
+            name="[UTIL] Utility",
+            value="\n".join(
+                [
+                    "!lint <file> – Run code linting",
+                    "!ocr <image> – Extract text from images",
+                    "!createpr <repo> <title> – Create GitHub PR",
+                ]
+            ),
+            inline=False,
+        )
+
+        embed.set_footer(
+            text="[TIP] Attach files with your commands when relevant | Use /capabilities for detailed feature list"
+        )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 

@@ -17,9 +17,10 @@ pydub>=0.25.1
 # Database for conversation memory
 aiosqlite>=0.19.0
 
-# Code analysis and linting
+# System monitoring
+psutil>=5.9.0
 flake8>=6.0.0
-ast-analyze>=1.0.0
+# ast-analyze>=1.0.0  # Removed - package doesn't exist
 
 # GitHub API integration
 PyGithub>=1.59.0

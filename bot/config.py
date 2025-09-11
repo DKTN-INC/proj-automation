@@ -32,6 +32,7 @@ class BotConfig:
         self.ideasheets_dir = self.repo_root / "docs" / "ideasheets"
         self.helpdocs_dir = self.repo_root / "docs" / "helpdocs"
         self.output_dir = self.repo_root / "output"
+        self.temp_dir = self.repo_root / "temp"
 
         # Database path
         self.db_path = self.repo_root / "bot" / "conversation_memory.db"
@@ -60,3 +61,37 @@ class BotConfig:
         """Create necessary directories."""
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+    def validate_config(self):
+        """Validate configuration and return status."""
+        messages = []
+        is_valid = True
+
+        if not self.discord_token:
+            messages.append("ERROR: DISCORD_BOT_TOKEN is required")
+            is_valid = False
+        else:
+            messages.append("INFO: Discord token configured")
+
+        if not self.openai_api_key:
+            messages.append("WARNING: OPENAI_API_KEY not set - AI features disabled")
+        else:
+            messages.append("INFO: OpenAI API key configured")
+
+        if not self.github_token:
+            messages.append("WARNING: GITHUB_TOKEN not set - GitHub features disabled")
+        else:
+            messages.append("INFO: GitHub token configured")
+
+        if self.admin_user_ids:
+            messages.append(
+                f"INFO: {len(self.admin_user_ids)} admin user(s) configured"
+            )
+        else:
+            messages.append("WARNING: No admin users configured")
+
+        return is_valid, messages
+
+
+# Create global config instance
+config = BotConfig()

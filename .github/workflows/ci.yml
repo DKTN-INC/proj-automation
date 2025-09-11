@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  PYTHON_VERSION: "3.11"
+  PYTHON_VERSION: "3.13"
 
 jobs:
   lint-and-format:
@@ -55,7 +55,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        os: ["ubuntu-latest", "windows-latest"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
       fail-fast: false
 
     steps:
@@ -75,7 +76,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.python-version }}-pip-
 
-      - name: Install system dependencies
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -87,13 +89,58 @@ jobs:
             shared-mime-info \
             fonts-dejavu-core
 
+      - name: Install FFmpeg on Windows (optional)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Run the existing installer script (it chooses the best available installer)
+          .\scripts\install_ffmpeg.ps1
+
+      - name: Install WeasyPrint runtime libs on Windows (best-effort)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # WeasyPrint requires GTK/Cairo/Pango; try Chocolatey if available.
+          # This is best-effort: runner may not have admin or choco; ignore failures.
+          try {
+            if (Get-Command choco -ErrorAction SilentlyContinue) {
+              choco install -y gtk-runtime cairo pango libffi
+            } else {
+              Write-Host "choco not found; skipping WeasyPrint native deps install (best-effort)"
+            }
+          } catch {
+            Write-Warning "WeasyPrint native libs install failed or not permitted in runner; markdown->PDF will remain disabled"
+          }
+
+      - id: verify-ffmpeg
+        name: Verify FFmpeg on Windows and capture version
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          try {
+            $ver = ffmpeg -version 2>&1 | Out-String
+            Write-Host "ffmpeg detected:";
+            Write-Host $ver
+            # Export version as job output for downstream gating/visibility
+            $out = "ffmpeg_version<<EOF`n$ver`nEOF"
+            $out | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          } catch {
+            Write-Error "ffmpeg not found after installer step"
+            exit 1
+          }
+
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
+      - name: Check native dependencies (diagnostic)
+        run: |
+          python scripts/check_native_deps.py
+
       - name: Run pytest
+        if: runner.os != 'Windows' || steps.verify-ffmpeg.outcome == 'success'
         run: |
           pytest tests/ -v --tb=short --cov-report=xml --cov-report=term-missing
 

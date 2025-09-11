@@ -1,0 +1,8 @@
+exclude = [
+  "htmlcov/**",
+  "coverage.xml",
+  "ruff_errors.txt",
+  "output/**",
+  "**/*.html",
+]
+line-length = 88

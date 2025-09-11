@@ -15,7 +15,21 @@ import sys
 from typing import Dict, Optional
 
 import markdown
-import weasyprint
+
+try:
+    import weasyprint
+
+    WEASYPRINT_AVAILABLE = True
+except Exception:  # cffi/ctypes OSError when system libs missing
+    weasyprint = None
+    WEASYPRINT_AVAILABLE = False
+    import warnings
+
+    warnings.warn(
+        "WeasyPrint unavailable: missing system libraries (GTK/Cairo/Pango). "
+        "Markdown to PDF features are disabled until those are installed.",
+        RuntimeWarning,
+    )
 from jinja2 import Environment, FileSystemLoader
 
 
