@@ -47,49 +47,15 @@ jobs:
           # Generate coverage.xml for SonarCloud
           pytest --maxfail=1 --disable-warnings -q --cov=. --cov-report=xml:coverage.xml || true
 
-      - name: Cache Sonar scanner
-        uses: actions/cache@v4
+      - name: Run SonarCloud analysis (official action)
+        uses: SonarSource/sonarcloud-github-action@v1
         with:
-          path: ~/.sonar/cache
-          key: ${{ runner.os }}-sonar-${{ hashFiles('**/pom.xml', '**/build.gradle', '**/pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-sonar-
-
-      - name: Download SonarScanner CLI
-        run: |
-          # Use a stable scanner version compatible with SonarCloud
-          SCANNER_VERSION=4.8.1.3023
-          SCANNER_ZIP="sonar-scanner-cli-${SCANNER_VERSION}-linux.zip"
-          curl -sSLo "$SCANNER_ZIP" "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/${SCANNER_ZIP}"
-          unzip -q "$SCANNER_ZIP"
-          SCANNER_DIR="sonar-scanner-${SCANNER_VERSION}-linux"
-          # remove any bundled JRE shipped with the scanner to force use of the runner's JDK
-          if [ -d "$SCANNER_DIR/jre" ]; then
-            rm -rf "$SCANNER_DIR/jre"
-          fi
-          # export scanner location for subsequent steps
-          echo "SONAR_SCANNER_HOME=$PWD/$SCANNER_DIR" >> $GITHUB_ENV
-          echo "$PWD/$SCANNER_DIR/bin" >> $GITHUB_PATH
-
-      - name: Run SonarScanner CLI
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          set -o pipefail
-          # Ensure runner JDK is preferred by prepending JAVA_HOME/bin if set
-          if [ -n "$JAVA_HOME" ]; then
-            export PATH="$JAVA_HOME/bin:$PATH"
-          fi
-          # Invoke the scanner via the runner's java executable to guarantee the correct JVM
-          "$JAVA_HOME/bin/java" -cp "$SONAR_SCANNER_HOME/lib/*" org.sonarsource.scanner.cli.Main \
-            -Dsonar.organization=${{ secrets.SONAR_ORG }} \
-            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
-            -Dsonar.sources=. \
-            -Dsonar.tests=tests \
-            -Dsonar.test.inclusions=tests/** \
-            -Dsonar.python.coverage.reportPaths=coverage.xml \
-            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL || 'https://sonarcloud.io' }} \
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+          organization: ${{ secrets.SONAR_ORG }}
+          token: ${{ secrets.SONAR_TOKEN }}
+          projectKey: ${{ secrets.SONAR_PROJECT_KEY }}
+          # The action will locate the coverage.xml produced earlier
+          extra-properties: |
+            sonar.python.coverage.reportPaths=coverage.xml
 
       - name: Upload Sonar report (optional)
         if: always()
