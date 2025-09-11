@@ -3,7 +3,6 @@
 Tests for Windows console emoji handling
 """
 
-import sys
 import unittest.mock
 
 import pytest
