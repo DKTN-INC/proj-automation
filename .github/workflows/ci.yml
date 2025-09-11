@@ -11,10 +11,6 @@ on:
         description: 'If true, run the WeasyPrint fail-fast native libs check on ubuntu-latest'
         required: false
         default: 'false'
-      run_all_checks:
-        description: 'If true, dispatch the Run All Checks workflows (Windows/Unix) after CI succeeds'
-        required: false
-        default: 'false'
 
 env:
   PYTHON_VERSION: "3.13"
@@ -36,12 +32,11 @@ jobs:
       - name: Check required secrets are present
         run: |
           missing=()
-          # Require the bot token for CI runs that need to exercise real integrations
-          if [ -z "${{ secrets.DISCORD_BOT_TOKEN }}" ]; then
-            echo "DISCORD_BOT_TOKEN is missing"
-            missing+=(DISCORD_BOT_TOKEN)
+          if [ -z "${{ secrets.DISCORD_WEBHOOK }}" ]; then
+            echo "DISCORD_WEBHOOK is missing"
+            missing+=(DISCORD_WEBHOOK)
           fi
-          # If S3 uploads are used in your workflow, ensure required AWS secrets exist (diagnostic)
+          # If S3 uploads are used in your workflow, ensure required AWS secrets exist
           if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] || [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
             echo "AWS credentials missing (optional unless using S3 presigned uploads)"
           fi
@@ -360,97 +355,3 @@ jobs:
             echo "  Build Check: ${{ needs.build-check.result }}"
             exit 1
           fi
-
-      - id: dispatch-windows
-        name: Optionally dispatch Run All Checks workflows (Windows)
-        if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.run_all_checks == 'true') || (github.event_name != 'workflow_dispatch' && env.RUN_ALL_CHECKS == 'true') }}
-        continue-on-error: true
-        env:
-          REF: ${{ github.ref_name || github.ref }}
-          REPO: ${{ github.repository }}
-          WORKFLOW_FILE: run_all_checks.yml
-        run: |
-          echo "Dispatching Run All Checks (Windows) workflow..."
-          url="https://api.github.com/repos/$REPO/actions/workflows/$WORKFLOW_FILE/dispatches"
-          body=$(printf '{"ref":"%s"}' "$REF")
-          status=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "$url" -d "$body")
-          echo "dispatch_windows_status=$status" >> $GITHUB_OUTPUT
-          if [ "$status" -ge 200 ] && [ "$status" -lt 300 ]; then
-            echo "Dispatch Windows accepted (HTTP $status)"
-          else
-            echo "Dispatch Windows failed (HTTP $status)"
-          fi
-
-      - id: dispatch-unix
-        name: Optionally dispatch Run All Checks workflows (Unix)
-        if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.run_all_checks == 'true') || (github.event_name != 'workflow_dispatch' && env.RUN_ALL_CHECKS == 'true') }}
-        continue-on-error: true
-        env:
-          REF: ${{ github.ref_name || github.ref }}
-          REPO: ${{ github.repository }}
-          WORKFLOW_FILE: run_all_checks_unix.yml
-        run: |
-          echo "Dispatching Run All Checks (Unix) workflow..."
-          url="https://api.github.com/repos/$REPO/actions/workflows/$WORKFLOW_FILE/dispatches"
-          body=$(printf '{"ref":"%s"}' "$REF")
-          status=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "$url" -d "$body")
-          echo "dispatch_unix_status=$status" >> $GITHUB_OUTPUT
-          if [ "$status" -ge 200 ] && [ "$status" -lt 300 ]; then
-            echo "Dispatch Unix accepted (HTTP $status)"
-          else
-            echo "Dispatch Unix failed (HTTP $status)"
-          fi
-
-      - id: capture-dispatch-urls
-        name: Capture dispatched run URLs (best-effort)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_REF_NAME: ${{ github.ref_name || github.ref }}
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-            import os, json, urllib.request
-            token = os.environ.get('GITHUB_TOKEN')
-            repo = os.environ.get('GITHUB_REPOSITORY') or os.environ.get('REPO')
-            ref = os.environ.get('GITHUB_REF_NAME') or os.environ.get('REF')
-            out_path = os.environ.get('GITHUB_OUTPUT')
-            results = {}
-            headers = {'Accept':'application/vnd.github+json', 'Authorization':'Bearer '+token, 'User-Agent':'ci-best-effort'}
-            for key, wf in [('windows','run_all_checks.yml'), ('unix','run_all_checks_unix.yml')]:
-                try:
-                    url = f"https://api.github.com/repos/{repo}/actions/workflows/{wf}/runs?branch={ref}&event=workflow_dispatch&per_page=5"
-                    req = urllib.request.Request(url, headers=headers)
-                    with urllib.request.urlopen(req) as resp:
-                        data = json.load(resp)
-                    runs = data.get('workflow_runs', [])
-                    if runs:
-                        results[key] = runs[0].get('html_url','')
-                    else:
-                        results[key] = ''
-                except Exception:
-                    results[key] = ''
-
-            with open(out_path, 'a') as f:
-                f.write(f"dispatched_windows_run_url={results['windows']}\n")
-                f.write(f"dispatched_unix_run_url={results['unix']}\n")
-                print('Captured dispatch URLs (best-effort)')
-          PY
-
-      - name: Show dispatch results
-        run: |
-          echo "Windows dispatch HTTP status: ${{ steps.dispatch-windows.outputs.dispatch_windows_status }}"
-          echo "Unix dispatch HTTP status: ${{ steps.dispatch-unix.outputs.dispatch_unix_status }}"
-
-      - name: Save dispatch results and upload artifact
-        if: ${{ always() }}
-        run: |
-          mkdir -p dispatch_results
-          echo "{\"dispatch_windows_status\": \"${{ steps.dispatch-windows.outputs.dispatch_windows_status }}\", \"dispatch_unix_status\": \"${{ steps.dispatch-unix.outputs.dispatch_unix_status }}\"}" > dispatch_results/dispatch_results.json
-
-      - name: Upload dispatch results artifact
-        uses: actions/upload-artifact@v4
-        if: ${{ always() }}
-        with:
-          name: dispatch-results
-          path: dispatch_results/dispatch_results.json
