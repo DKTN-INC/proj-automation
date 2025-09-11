@@ -128,6 +128,64 @@ CI integration: the GitHub Actions workflow includes a Windows runner step that 
 Note: if Chocolatey is used, it may require administrator privileges on the runner or machine. The installer script falls back to a portable download when admin rights are not available.
 ```
 
+## Native runtime notes & test coverage
+
+Small but important runtime requirements and tests were added to validate PDF upload and CI resilience:
+
+- WeasyPrint (Markdown -> PDF): WeasyPrint depends on native libraries (GTK/Cairo/Pango). These are typically available on Linux runners (installed in CI by apt in the workflow). On Windows the repository includes a best-effort helper, but the recommended runner for reliable PDF rendering is Ubuntu (or a runner with those libs installed).
+
+- FFmpeg (audio features / Windows): FFmpeg must be on PATH for audio processing and some markdown/media workflows. Use the provided `scripts/install_ffmpeg.ps1` on Windows or install via your package manager on Linux/macOS.
+
+- Tests added:
+   - `tests/test_send_pdf_s3.py` — exercises the S3 presigned-upload helper (mocked boto3 + HTTP PUT).
+   - `tests/test_send_pdf_retries.py` — verifies retry/backoff behavior for rate-limited (429) responses.
+   - `tests/test_send_pdf_fallback_and_5xx.py` — tests external-upload fallback when attachments are too large, and retry/backoff for 5xx failures.
+
+   ---
+
+   ## Run All Checks workflows (CI)
+
+   Two manual GitHub Actions workflows were added to help run the full local checks (setup, smoke tests, and pytest) on hosted runners:
+
+   - `Run All Checks (Windows)` — runs `scripts/run_all_checks.ps1` on `windows-latest`. It requires the repository secret `DISCORD_BOT_TOKEN` to be set before running.
+   - `Run All Checks (Unix)` — runs `scripts/run_all_checks.sh` on `ubuntu-latest` (or macOS) and can be used when you prefer a Unix runner.
+
+   How to use:
+
+   1. Add the required secret in GitHub: Repository Settings → Secrets and variables → Actions → New repository secret
+      - Name: `DISCORD_BOT_TOKEN`
+      - Value: (your Discord bot token)
+
+   2. Open the repository Actions tab, select the desired workflow (`Run All Checks (Windows)` or `Run All Checks (Unix)`), and click "Run workflow".
+
+   Notes:
+   - These workflows run the same local helper scripts used for development and provide a quick way to validate the repo on CI images. They are manual-run (workflow_dispatch) by design to avoid leaking secrets on forked PRs.
+   - Do not store or commit secrets in the repository. Use GitHub Secrets for CI and a local `.env` for development (which is already gitignored).
+
+   Quick links
+
+   Windows: https://github.com/dktn7/proj-automation/actions/workflows/run_all_checks.yml
+
+   Unix: https://github.com/dktn7/proj-automation/actions/workflows/run_all_checks_unix.yml
+
+   You can also add a status badge for a workflow file using the Actions badge URL format. For example (manual-run workflows may not show a meaningful 'passing' state until they have run on the default branch):
+
+   ```
+   ![Run All Checks (Windows)](https://github.com/dktn7/proj-automation/actions/workflows/run_all_checks.yml/badge.svg?branch=main)
+   ```
+
+   Replace `run_all_checks.yml` with `run_all_checks_unix.yml` to show the Unix workflow badge.
+
+   CI note: `run_all_checks` input
+
+   When running the main `CI` workflow manually you can toggle the `run_all_checks` input to `true` to have CI dispatch the two hosted-runner workflows (`Run All Checks (Windows)` and `Run All Checks (Unix)`) after the primary jobs succeed. This is useful when you want the CI pipeline to trigger the full local-checks run on hosted Windows or Ubuntu runners without manually starting the separate workflows.
+
+
+CI guidance:
+- The GitHub Actions workflow installs Python dependencies from `requirements.txt` (now includes `boto3`). The workflow also contains diagnostic steps and best-effort installers to help tests run on Windows runners; for reliable PDF rendering use an Ubuntu runner or pre-install WeasyPrint native dependencies on the runner image.
+
+If you plan to run PDF generation or the Markdown->PDF tests locally, install WeasyPrint native libs (GTK/Cairo/Pango) or run the tests on an Ubuntu runner that includes them.
+
 ### 2. Configure Discord Bot
 
 1. Create Discord Application:
