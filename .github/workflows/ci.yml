@@ -93,7 +93,24 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          # Run the existing installer script (it chooses the best available installer)
           .\scripts\install_ffmpeg.ps1
+
+      - name: Install WeasyPrint runtime libs on Windows (best-effort)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # WeasyPrint requires GTK/Cairo/Pango; try Chocolatey if available.
+          # This is best-effort: runner may not have admin or choco; ignore failures.
+          try {
+            if (Get-Command choco -ErrorAction SilentlyContinue) {
+              choco install -y gtk-runtime cairo pango libffi
+            } else {
+              Write-Host "choco not found; skipping WeasyPrint native deps install (best-effort)"
+            }
+          } catch {
+            Write-Warning "WeasyPrint native libs install failed or not permitted in runner; markdown->PDF will remain disabled"
+          }
 
       - id: verify-ffmpeg
         name: Verify FFmpeg on Windows and capture version
@@ -117,6 +134,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
+
+      - name: Check native dependencies (diagnostic)
+        run: |
+          python scripts/check_native_deps.py
 
       - name: Run pytest
         if: runner.os != 'Windows' || steps.verify-ffmpeg.outcome == 'success'

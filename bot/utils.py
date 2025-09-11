@@ -669,7 +669,6 @@ class CodeAnalyzer:
             with contextlib.suppress(Exception):
                 Path(temp_path).unlink()
 
-<<<<<<< HEAD
             if proc.returncode == 0:
                 return ["✅ No linting issues found!"]
             else:

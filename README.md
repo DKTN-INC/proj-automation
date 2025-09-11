@@ -398,4 +398,44 @@ For questions or support:
 - Built with [discord.py](https://discordpy.readthedocs.io/) for Discord integration
 - PDF generation powered by [wkhtmltopdf](https://wkhtmltopdf.org/)
 - Markdown processing with [Python-Markdown](https://python-markdown.github.io/)
+
+---
+
+## CI requirements for PDF / audio features
+
+Some features (Markdown→PDF generation and audio processing) require native
+libraries that are not always present on GitHub-hosted runners, especially on
+Windows. The repository contains helper scripts and CI diagnostics to make
+these requirements explicit.
+
+What the CI does today
+- The `test` job runs a diagnostic script `scripts/check_native_deps.py` that
+   prints whether `ffmpeg` and the WeasyPrint Python package/native libs are
+   available. This step is non-failing and is intended to provide clear logs
+   for maintainers.
+- On Windows runners the workflow also attempts to run `scripts/install_ffmpeg.ps1`.
+   This script tries Scoop, Chocolatey, and finally downloads a portable ffmpeg
+   build to the user profile. Installing WeasyPrint native libs on Windows is
+   best-effort and may require admin rights.
+
+Recommended options
+- If you need reliable PDF rendering in CI, prefer an Ubuntu runner where the
+   native packages can be installed via apt (`libcairo2`, `libpango-1.0-0`,
+   `libpangocairo-1.0-0`, `libgdk-pixbuf2.0-0`, `libffi-dev`, `shared-mime-info`).
+- For Windows-specific pipelines, consider using a self-hosted runner that has
+   the required native libraries preinstalled, or enable Chocolatey and install
+   the native runtimes there.
+- If PDF/audio features are not required for every PR, keep the diagnostic
+   script non-failing (the default) and run full PDF/audio integration tests on
+   an explicit job or a scheduled workflow that uses an appropriate runner.
+
+How to opt-in to failing CI on missing deps
+- You can change the diagnostic step to fail CI if dependencies are missing by
+   running `python scripts/check_native_deps.py --fail-on-missing` in the job.
+   This was intentionally left as an opt-in change because GitHub-hosted
+   Windows runners may not permit installing the required native libraries.
+
+If you want, I can add a short Troubleshooting snippet with exact apt / choco
+commands in this README or create a dedicated `docs/CI.md` with step-by-step
+instructions for setting up self-hosted runners.
 - Automated with [GitHub Actions](https://github.com/features/actions)

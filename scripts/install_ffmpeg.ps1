@@ -21,8 +21,6 @@ Notes:
   tests that require ffmpeg.
 #>
 
-set -e
-
 function Write-Info($msg) { Write-Host "[info] $msg" -ForegroundColor Cyan }
 function Write-Warn($msg) { Write-Host "[warn] $msg" -ForegroundColor Yellow }
 function Write-ErrorExit($msg) { Write-Host "[error] $msg" -ForegroundColor Red; exit 1 }
@@ -38,7 +36,7 @@ if (Test-FFmpegExists) {
 }
 
 # Try Scoop (user-level)
-function Try-ScoopInstall {
+function Install-FFmpegScoop {
     if (Get-Command scoop -ErrorAction SilentlyContinue) {
         try {
             Write-Info "Scoop detected — installing ffmpeg via scoop..."
@@ -52,7 +50,7 @@ function Try-ScoopInstall {
 }
 
 # Try Chocolatey (may require admin)
-function Try-ChocoInstall {
+function Install-FFmpegChoco {
     if (Get-Command choco -ErrorAction SilentlyContinue) {
         try {
             Write-Info "Chocolatey detected — installing ffmpeg via choco..."
@@ -65,8 +63,21 @@ function Try-ChocoInstall {
     return $false
 }
 
+# Print actionable guidance when Chocolatey is not available
+function Write-ChocoGuidance {
+    Write-Host "";
+    Write-Host "=== Chocolatey not found on this system ===" -ForegroundColor Yellow
+    Write-Host "To enable automatic installation of native libraries (recommended), install Chocolatey:" -ForegroundColor Cyan
+    Write-Host "  Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))" -ForegroundColor Gray
+    Write-Host "Or install the needed native runtimes manually (WeasyPrint requires GTK/Cairo/Pango/libffi):" -ForegroundColor Cyan
+    Write-Host "  - Visit https://weasyprint.org/ and follow the platform-specific instructions" -ForegroundColor Gray
+    Write-Host "  - On Windows you can use Chocolatey packages (if you install choco): 'choco install gtk-runtime cairo pango libffi'" -ForegroundColor Gray
+    Write-Host "If you prefer not to install native libs on CI runners, you can keep WeasyPrint disabled; Markdown->PDF features will be skipped." -ForegroundColor Cyan
+    Write-Host ""
+}
+
 # Download portable static build and add to user PATH
-function Try-DownloadPortable {
+function Install-FFmpegPortable {
     Write-Info "Downloading portable ffmpeg build (BtbN builds) and extracting..."
 
     $tmp = [IO.Path]::Combine($env:TEMP, "ffmpeg_download.zip")
@@ -129,10 +140,17 @@ function Try-DownloadPortable {
 }
 
 # Run installation attempts
-if (Try-ScoopInstall) { exit 0 }
-if (Try-ChocoInstall) { exit 0 }
+if (Install-FFmpegScoop) { exit 0 }
+if (Install-FFmpegChoco) { exit 0 }
+
+# If we reached here, choco wasn't used (or failed). Provide clearer guidance before falling back.
+if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
+    Write-ChocoGuidance
+} else {
+    Write-Info "Chocolatey present but ffmpeg install did not succeed; attempting portable download fallback..."
+}
 
 Write-Info "Falling back to portable download and user PATH addition..."
-if (Try-DownloadPortable) { exit 0 }
+if (Install-FFmpegPortable) { exit 0 }
 
-Write-ErrorExit "All install attempts failed. Please install ffmpeg manually or use a package manager."
+Write-ErrorExit "All install attempts failed. Please install ffmpeg manually or use a package manager as described above."

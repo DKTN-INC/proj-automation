@@ -28,3 +28,6 @@ python-dotenv>=1.0.0  # For loading .env files in development
 # Documentation (optional)
 mkdocs>=1.5.0
 mkdocs-material>=9.0.0
+ 
+# Optional cloud SDKs for integration tests
+boto3>=1.28.0
