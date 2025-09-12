@@ -23,7 +23,7 @@ jobs:
   # Optional check that required secrets are present before running CI heavy jobs
   secret-presence-check:
     # Run only when ENFORCE_SECRET_PRESENCE is true and skip enforcement for forked pull requests
-    if: "env.ENFORCE_SECRET_PRESENCE == 'true' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)"
+    if: "${{ github.event.inputs.ENFORCE_SECRET_PRESENCE == 'true' }} && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -47,7 +47,7 @@ jobs:
 
   # Optional fail-fast job: checks WeasyPrint native runtime on ubuntu-latest
   weasyprint-check:
-    if: "(github.event_name == 'workflow_dispatch' && github.event.inputs.fail_on_missing_weasy == 'true') || env.FAIL_ON_MISSING_WEASY == 'true'"
+    if: "(github.event_name == 'workflow_dispatch' && github.event.inputs.fail_on_missing_weasy == 'true') || ${{ github.event.inputs.FAIL_ON_MISSING_WEASY == 'true' }}"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
