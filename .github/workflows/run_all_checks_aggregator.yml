@@ -7,32 +7,8 @@ on:
       - run_all_checks_unix.yml
     types: [completed]
 
-jobs:
-  aggregate:
-    name: Aggregate Run All Checks Results
-    runs-on: ubuntu-latest
-    steps:
-      - name: Write workflow_run payload
-        run: |
-          echo "$GITHUB_EVENT_PATH"
-          cat "$GITHUB_EVENT_PATH" > dispatched_workflow_run.json
-      - name: Upload dispatched workflow run
-        uses: actions/upload-artifact@v4
-        with:
-          name: dispatched-workflow-run
-          path: dispatched_workflow_run.json
-          retention-days: 7
-name: Run All Checks Aggregator
-
 permissions:
   checks: write
-
-on:
-  workflow_run:
-    workflows:
-      - run_all_checks.yml
-      - run_all_checks_unix.yml
-    types: [completed]
 
 jobs:
   aggregate:
@@ -66,7 +42,10 @@ jobs:
               conclusion: conclusion === 'success' ? 'success' : 'failure',
               output: {
                 title: `Run All Checks: ${workflow_name} — ${conclusion}`,
-                summary: `The dispatched workflow '${workflow_name}' finished with conclusion: ${conclusion}.\n\nView the run: ${run.html_url}`
+                summary: |
+                  The dispatched workflow '${workflow_name}' finished with conclusion: ${conclusion}.
+
+                  View the run: ${run.html_url}
               }
             });
 

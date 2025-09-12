@@ -5,25 +5,10 @@ on:
 
 jobs:
   run-all-checks:
-    name: Run All Checks (placeholder)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run placeholder checks
-        run: |
-          echo "Running all checks (placeholder)"
-          echo "This workflow was re-added to support CI dispatch + aggregator testing."
-name: Run All Checks (Windows)
-
-on:
-  workflow_dispatch: {}
-
-jobs:
-  run-all-checks:
     name: Run All Checks on Windows
     runs-on: windows-latest
     env:
-      PYTHON_VERSION: '3.13'
+      PYTHON_VERSION: '3.11'
 
     steps:
       - name: Checkout

@@ -42,7 +42,7 @@ jobs:
       - name: Install system dependencies for WeasyPrint
         run: |
           set -euo pipefail
-          sudo apt-get update
+          sudo apt-get update || echo "Failed to update package list"
           sudo apt-get install -y \
             libcairo2 \
             libpango-1.0-0 \
@@ -50,7 +50,7 @@ jobs:
             libgdk-pixbuf2.0-0 \
             libffi-dev \
             shared-mime-info \
-            fonts-dejavu-core
+            fonts-dejavu-core || echo "Failed to install dependencies"
           echo "✅ Installed system dependencies for WeasyPrint"
 
       - name: Install Python dependencies

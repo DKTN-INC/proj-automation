@@ -5,24 +5,10 @@ on:
 
 jobs:
   run-all-checks-unix:
-    name: Run All Checks (Unix placeholder)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run placeholder unix checks
-        run: |
-          echo "Running unix checks (placeholder)"
-name: Run All Checks (Unix)
-
-on:
-  workflow_dispatch: {}
-
-jobs:
-  run-all-checks-unix:
     name: Run All Checks on Unix
     runs-on: ubuntu-latest
     env:
-      PYTHON_VERSION: '3.13'
+      PYTHON_VERSION: '3.11'
 
     steps:
       - name: Checkout
@@ -48,7 +34,7 @@ jobs:
           if [ -n "${{ secrets.BOT_TOKEN }}" ]; then
             echo "BOT_TOKEN=${{ secrets.BOT_TOKEN }}" >> $GITHUB_ENV
           elif [ -n "${{ secrets.DISCORD_BOT_TOKEN }}" ]; then
-            echo "BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN }}" >> $GITHUB_ENV
+            echo "DISCORD_BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN }}" >> $GITHUB_ENV
           fi
           echo "ENFORCE_REQUIRED_SECRETS=true" >> $GITHUB_ENV
 

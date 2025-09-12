@@ -48,12 +48,12 @@ jobs:
       
       - name: Validate and parse inputs
         run: |
-          echo "🔍 Validating multi-channel standup inputs..."
-          
+          echo "Validating inputs..."
           CHANNELS="${{ github.event.inputs.channels || 'general,development' }}"
           TEAM="${{ github.event.inputs.team || 'development' }}"
           FORMAT="${{ github.event.inputs.format || 'markdown' }}"
-          INCLUDE_ANALYTICS="${{ github.event.inputs.include_analytics || 'true' }}"
+          INCLUDE_ANALYTICS="${{ github.event.inputs.include_analytics || true }}"
+          echo "Channels: $CHANNELS, Team: $TEAM, Format: $FORMAT, Include Analytics: $INCLUDE_ANALYTICS"
           
           # Validate team name
           if [[ ! "$TEAM" =~ ^[a-zA-Z0-9_-]+$ ]]; then
