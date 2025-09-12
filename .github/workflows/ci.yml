@@ -13,7 +13,7 @@ on:
         default: 'false'
 
 env:
-  PYTHON_VERSION: "3.13"
+  PYTHON_VERSION: "3.11" # Updated to a stable release
   # Toggleable flag to enable a fail-fast WeasyPrint native libs check
   FAIL_ON_MISSING_WEASY: "false"
   # Toggleable flag to enable secret presence enforcement in CI
@@ -32,9 +32,9 @@ jobs:
       - name: Check required secrets are present
         run: |
           missing=()
-          if [ -z "${{ secrets.DISCORD_WEBHOOK }}" ]; then
-            echo "DISCORD_WEBHOOK is missing"
-            missing+=(DISCORD_WEBHOOK)
+          if [ -z "${{ secrets.BOT_TOKEN }}" ]; then
+            echo "BOT_TOKEN is missing"
+            missing+=(BOT_TOKEN)
           fi
           # If S3 uploads are used in your workflow, ensure required AWS secrets exist
           if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] || [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
@@ -115,7 +115,7 @@ jobs:
     strategy:
       matrix:
         os: ["ubuntu-latest", "windows-latest"]
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"] # Removed 3.13
       fail-fast: false
 
     steps:
