@@ -8,7 +8,7 @@ Provides circuit breaker patterns for external service calls and error recovery.
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from functools import wraps
 from typing import Any, Callable, Dict, Optional, TypeVar
@@ -149,7 +149,7 @@ class CircuitBreaker:
         """Handle successful operation."""
         async with self._lock:
             self.stats.success_count += 1
-            self.stats.last_success_time = datetime.now()
+            self.stats.last_success_time = datetime.now(timezone.utc)
 
             # If we're in HALF_OPEN and we've reached the success threshold,
             # transition back to CLOSED.
@@ -159,12 +159,12 @@ class CircuitBreaker:
             ):
                 self._transition_to_closed()
 
-    async def _on_failure(self, exception: Exception) -> None:
+    async def _on_failure(self) -> None:
         """Handle failed operation."""
         async with self._lock:
             self.stats.failure_count += 1
             self.stats.total_failures += 1
-            self.stats.last_failure_time = datetime.now()
+            self.stats.last_failure_time = datetime.now(timezone.utc)
 
             if self.stats.state == CircuitState.CLOSED:
                 if self.stats.failure_count >= self.config.failure_threshold:
@@ -177,7 +177,7 @@ class CircuitBreaker:
         if self.stats.last_failure_time is None:
             return True
 
-        time_since_failure = datetime.now() - self.stats.last_failure_time
+        time_since_failure = datetime.now(timezone.utc) - self.stats.last_failure_time
         return time_since_failure.total_seconds() >= self.config.recovery_timeout
 
     def _transition_to_closed(self) -> None:
@@ -186,14 +186,14 @@ class CircuitBreaker:
         self.stats.state = CircuitState.CLOSED
         self.stats.failure_count = 0
         self.stats.success_count = 0
-        self.stats.state_changed_time = datetime.now()
+        self.stats.state_changed_time = datetime.now(timezone.utc)
 
     def _transition_to_open(self) -> None:
         """Transition to open state."""
         logger.warning(f"Circuit breaker '{self.name}' transitioning to OPEN")
         self.stats.state = CircuitState.OPEN
         self.stats.success_count = 0
-        self.stats.state_changed_time = datetime.now()
+        self.stats.state_changed_time = datetime.now(timezone.utc)
 
     def _transition_to_half_open(self) -> None:
         """Transition to half-open state."""
@@ -201,7 +201,7 @@ class CircuitBreaker:
         self.stats.state = CircuitState.HALF_OPEN
         self.stats.failure_count = 0
         self.stats.success_count = 0
-        self.stats.state_changed_time = datetime.now()
+        self.stats.state_changed_time = datetime.now(timezone.utc)
 
     def get_stats(self) -> Dict[str, Any]:
         """Get circuit breaker statistics."""

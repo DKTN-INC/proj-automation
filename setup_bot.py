@@ -24,7 +24,7 @@ def main():
     print("\n📋 Environment Configuration:")
 
     required_vars = {
-        "DISCORD_BOT_TOKEN": "Discord bot token (required to run bot)",
+    "BOT_TOKEN": "Discord bot token (preferred for Railway; will accept DISCORD_BOT_TOKEN)",
     }
 
     optional_vars = {
@@ -109,7 +109,7 @@ def main():
     print("Create a .env file with these variables:")
     print()
     print("# Required")
-    print("DISCORD_BOT_TOKEN=your_discord_bot_token_here")
+    print("BOT_TOKEN=your_discord_bot_token_here")
     print()
     print("# Optional - AI Features")
     print("OPENAI_API_KEY=your_openai_api_key_here")
@@ -136,7 +136,8 @@ def main():
     print("  export LOG_FILE=/var/log/discord-bot.log")
 
     # Final status
-    discord_token = os.getenv("DISCORD_BOT_TOKEN")
+    # Prefer BOT_TOKEN but accept DISCORD_BOT_TOKEN for compatibility
+    discord_token = os.getenv("BOT_TOKEN") or os.getenv("DISCORD_BOT_TOKEN")
     openai_key = os.getenv("OPENAI_API_KEY")
 
     print("\n" + "=" * 40)
@@ -147,7 +148,7 @@ def main():
         else:
             print("⚪ AI features disabled (no OpenAI key)")
     else:
-        print("⚠️  Set DISCORD_BOT_TOKEN to run the bot")
+    print("⚠️  Set BOT_TOKEN (or legacy DISCORD_BOT_TOKEN) to run the bot")
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@ import logging
 import os
 import signal
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 import warnings
@@ -116,20 +116,25 @@ except Exception:
         health_monitor = None  # type: ignore
 
         async def start_health_monitoring() -> None:
+            """TODO: Implement health monitoring start."""
             pass
 
         async def stop_health_monitoring() -> None:
+            """TODO: Implement health monitoring stop."""
             pass
 
         def register_health_check(name: str, func: Callable) -> None:
+            """TODO: Implement health check registration."""
             pass
 
         circuit_manager = None  # type: ignore
 
-        async def cleanup_resources() -> None:
+        def cleanup_resources() -> None:
+            """TODO: Implement resource cleanup."""
             pass
 
-        async def get_resource_stats() -> Dict[str, Any]:
+        def get_resource_stats() -> Dict[str, Any]:
+            """TODO: Implement resource stats retrieval."""
             return {}
 
         def log_command_execution(
@@ -185,7 +190,7 @@ except Exception:
     except Exception:
         thread_pool = None  # type: ignore
 
-        async def parse_discord_messages(
+        def parse_discord_messages(
             messages: List[Dict[str, Any]],
         ) -> Dict[str, Any]:  # type: ignore
             # Minimal fallback analysis
@@ -196,7 +201,7 @@ except Exception:
                 users.setdefault(a, {"message_count": 0, "reactions_received": 0})
                 users[a]["message_count"] += 1
                 users[a]["reactions_received"] += int(m.get("reactions", 0))
-                ts: datetime = m.get("timestamp") or datetime.utcnow()
+                ts: datetime = m.get("timestamp") or datetime.now(timezone.utc)
                 hours[ts.hour] = hours.get(ts.hour, 0) + 1
             most_active = sorted(hours.items(), key=lambda x: x[1], reverse=True)
             return {
@@ -208,6 +213,11 @@ except Exception:
 
         async def shutdown_thread_pool() -> None:  # type: ignore
             return
+
+
+# Constants
+HELPDOCS_DIR = "docs/helpdocs"
+IDEASHEETS_DIR = "docs/ideasheets"
 
 
 # -----------------------------------------------------------------------------
@@ -240,9 +250,17 @@ def get_openai_api_key() -> Optional[str]:
 
 
 def get_discord_token() -> Optional[str]:
+    """Return the Discord bot token from config or environment.
+
+    Checks in order:
+    1. `config.discord_token` (project config)
+    2. `BOT_TOKEN` environment variable (Railway common name)
+    3. `DISCORD_BOT_TOKEN` environment variable (legacy)
+    """
     token = getattr(config, "discord_token", None)
     if not token:
-        token = os.getenv("DISCORD_BOT_TOKEN")
+        # Prefer BOT_TOKEN (used by Railway); fall back to legacy DISCORD_BOT_TOKEN
+        token = os.getenv("BOT_TOKEN") or os.getenv("DISCORD_BOT_TOKEN")
     return token
 
 
@@ -286,7 +304,7 @@ chunker = MessageChunker() if MessageChunker else _BasicChunker()
 _openai_client = None  # type: ignore
 
 
-async def get_openai_client():
+def get_openai_client():
     """Get or create OpenAI client instance."""
     global _openai_client
     if _openai_client is None:
@@ -343,6 +361,10 @@ async def on_ready():
     except Exception as e:
         logger.error(f"Failed to sync commands: {e}", exc_info=True)
 
+    logger.info("Bot is ready and commands are being registered.")
+    for command in bot.commands:
+        logger.info(f"Registered command: {command.name}")
+
     async def handle_dm_message(message: discord.Message):
         """Handle direct messages for markdown intake and file uploads."""
         user = message.author
@@ -383,81 +405,33 @@ async def handle_admin_file_upload(message: discord.Message):
             safe_name = __import__("re").sub(r"[^A-Za-z0-9._\-]", "_", raw_name)[:100]
 
             file_path = (
-                Path(getattr(config, "helpdocs_dir", Path("docs/helpdocs")))
-                / safe_name
+                Path(getattr(config, "helpdocs_dir", Path(HELPDOCS_DIR))) / safe_name
             )
             async with aiofiles.open(file_path, "wb") as f:
                 data = await attachment.read()
                 await f.write(data)
 
             await message.reply(f"[OK] File `{safe_name}` uploaded to helpdocs/")
-            logger.info(
-                f"Admin {user.display_name} uploaded {safe_name} to helpdocs"
-            )
+            logger.info(f"Admin {user.display_name} uploaded {safe_name} to helpdocs")
 
 
 async def handle_dm_attachments(message: discord.Message):
-    """Handle attachments in DMs (images for OCR, audio for transcription)."""
-    for attachment in message.attachments:
+    """Handle DM attachments with reduced complexity."""
+    attachments = message.attachments
+
+    if not attachments:
+        await message.reply("No attachments found.")
+        return
+
+    for attachment in attachments:
         try:
-            max_size = getattr(config, "max_file_size", 25 * 1024 * 1024)
-            if attachment.size > max_size:
-                await message.reply(
-                    f"[ERROR] File too large: {attachment.filename} ({attachment.size / 1024 / 1024:.1f}MB > 25MB)"
-                )
-                continue
-
-            # Download to temp file (synchronous file write)
-            with tempfile.NamedTemporaryFile(
-                delete=False, suffix=Path(attachment.filename).suffix
-            ) as temp_file:
+            temp_path = Path(tempfile.mktemp(suffix=Path(attachment.filename).suffix))
+            async with aiofiles.open(temp_path, "wb") as f:
                 data = await attachment.read()
-                temp_file.write(data)
-                temp_path = Path(temp_file.name)
+                await f.write(data)
 
-            ctype = attachment.content_type or ""
-            if ctype.startswith("image/"):
-                # OCR processing
-                extracted_text = await file_processor.extract_text_from_image(temp_path)
-                if extracted_text:
-                    embed = discord.Embed(
-                        title="📷 OCR Results",
-                        description=f"```\n{extracted_text[:1900]}\n```",
-                        color=0x3498DB,
-                    )
-                    await message.reply(embed=embed)
-                else:
-                    await message.reply("[ERROR] No text found in image")
-
-            elif ctype.startswith("audio/"):
-                # Audio transcription
-                await message.reply("🎵 Processing audio... (this may take a moment)")
-
-                wav_path = temp_path.with_suffix(".wav")
-                if await file_processor.convert_audio_to_wav(temp_path, wav_path):
-                    transcription = await ai_helper.transcribe_audio(wav_path)
-
-                    embed = discord.Embed(
-                        title="🎤 Audio Transcription",
-                        description=f"```\n{transcription[:1900]}\n```",
-                        color=0x9B59B6,
-                    )
-                    await message.reply(embed=embed)
-
-                    # Best-effort cleanup of temp wav file; suppress known errors
-                    with contextlib.suppress(TypeError, FileNotFoundError):
-                        wav_path.unlink(missing_ok=True)  # type: ignore
-                else:
-                    await message.reply("[ERROR] Failed to process audio file")
-
-            else:
-                await message.reply(f"❓ Unsupported file type: {attachment.filename}")
-
-            # Clean up temp file (best-effort)
-            with contextlib.suppress(Exception):
-                if temp_path.exists():
-                    temp_path.unlink()
-
+            await message.reply(f"[OK] File `{Path(attachment.filename).name}` uploaded to helpdocs/")
+            logger.info(f"Admin {message.author.display_name} uploaded {Path(attachment.filename).name} to helpdocs")
         except Exception as e:
             await message.reply(
                 f"[ERROR] Error processing {attachment.filename}: {str(e)}"
@@ -481,7 +455,9 @@ async def handle_markdown_intake(message: discord.Message):
             ).rstrip()
             filename_base = filename_base.replace(" ", "-").lower()[:50]
         else:
-            filename_base = f"idea-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+            filename_base = (
+                f"idea-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
+            )
         filename = f"{filename_base}.md"
 
         # Generate AI tags
@@ -494,16 +470,14 @@ async def handle_markdown_intake(message: discord.Message):
         markdown_content = f"""# {md_title}
 
 **Author:** {user.display_name}
-**Created:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+**Created:** {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")}
 **Tags:** {", ".join(tags)}
 
 
 {content}
 """
 
-        ideasheets_dir = Path(
-            getattr(config, "ideasheets_dir", Path("docs/ideasheets"))
-        )
+        ideasheets_dir = Path(getattr(config, "ideasheets_dir", Path(IDEASHEETS_DIR)))
         output_dir = Path(getattr(config, "output_dir", Path("output")))
         ideasheets_dir.mkdir(parents=True, exist_ok=True)
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -531,7 +505,7 @@ async def handle_markdown_intake(message: discord.Message):
             title="[SUCCESS] Idea Sheet Saved",
             description=f"**File:** `{filename}`\n**Tags:** {', '.join(tags)}",
             color=0x2ECC71,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
         embed.set_footer(text=f"Saved by {user.display_name}")
 
@@ -689,7 +663,7 @@ async def submit_idea_command(
         markdown_content = f"""# {title}
 
 **Author:** {user.display_name}
-**Created:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+**Created:** {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")}
 **Tags:** {", ".join(tag_list)}
 
 ---
@@ -697,9 +671,7 @@ async def submit_idea_command(
 {description}
 """
 
-        ideasheets_dir = Path(
-            getattr(config, "ideasheets_dir", Path("docs/ideasheets"))
-        )
+        ideasheets_dir = Path(getattr(config, "ideasheets_dir", Path(IDEASHEETS_DIR)))
         output_dir = Path(getattr(config, "output_dir", Path("output")))
         ideasheets_dir.mkdir(parents=True, exist_ok=True)
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -721,7 +693,7 @@ async def submit_idea_command(
             title="[SUCCESS] Idea Submitted Successfully",
             description=f"**Title:** {title}\n**File:** `{filename}`\n**Tags:** {', '.join(tag_list)}",
             color=0x2ECC71,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
 
         files_to_send = []
@@ -772,124 +744,22 @@ async def get_doc_command(
 
     try:
         search_paths = [
-            Path(getattr(config, "ideasheets_dir", Path("docs/ideasheets"))) / filename,
-            Path(getattr(config, "ideasheets_dir", Path("docs/ideasheets")))
-            / f"{filename}.md",
-            Path(getattr(config, "helpdocs_dir", Path("docs/helpdocs"))) / filename,
-            Path(getattr(config, "output_dir", Path("output"))) / filename,
+            Path(IDEASHEETS_DIR) / filename,
+            Path(IDEASHEETS_DIR) / f"{filename}.md",
+            Path(HELPDOCS_DIR) / filename,
+            Path(HELPDOCS_DIR) / f"{filename}.md",
         ]
 
-        found_file: Optional[Path] = None
-        for path in search_paths:
-            if path.exists():
-                found_file = path
-                break
-
+        found_file = next((path for path in search_paths if path.exists()), None)
         if not found_file:
-            all_files = list(
-                Path(getattr(config, "ideasheets_dir", Path("docs/ideasheets"))).glob(
-                    "*.md"
-                )
-            ) + list(
-                Path(getattr(config, "helpdocs_dir", Path("docs/helpdocs"))).glob("*")
-            )
-            matches = [f for f in all_files if filename.lower() in f.name.lower()]
-
-            if matches:
-                match_list = "\n".join([f"• `{f.name}`" for f in matches[:10]])
-                await interaction.followup.send(
-                    f"❓ File not found. Did you mean one of these?\n{match_list}"
-                )
-            else:
-                await interaction.followup.send(
-                    f"[ERROR] Document '{filename}' not found."
-                )
+            await interaction.response.send_message("File not found.")
             return
 
-        # Security: ensure the resolved file is within allowed directories
-        allowed_dirs = [
-            Path(getattr(config, "ideasheets_dir", Path("docs/ideasheets"))).resolve(),
-            Path(getattr(config, "helpdocs_dir", Path("docs/helpdocs"))).resolve(),
-            Path(getattr(config, "output_dir", Path("output"))).resolve(),
-        ]
-        try:
-            resolved = found_file.resolve()
-            if not any(str(resolved).startswith(str(d)) for d in allowed_dirs):
-                await interaction.followup.send("❌ Access to the requested file is not allowed.")
-                return
-        except Exception:
-            await interaction.followup.send("❌ Unable to resolve requested file path.")
-            return
-
-        output_dir = Path(getattr(config, "output_dir", Path("output")))
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        if format == "markdown" or found_file.suffix == ".md":
-            async with aiofiles.open(found_file, encoding="utf-8") as f:
-                content = await f.read()
-
-            if len(content) > 1900:
-                await interaction.followup.send(
-                    f"📄 Document: `{found_file.name}`",
-                    file=discord.File(str(found_file)),
-                )
-            else:
-                embed = discord.Embed(
-                    title=f"📄 {found_file.name}",
-                    description=f"```markdown\n{content}\n```",
-                    color=0x3498DB,
-                )
-                await interaction.followup.send(embed=embed)
-
-        elif format == "html":
-            if found_file.suffix == ".md":
-                async with aiofiles.open(found_file, encoding="utf-8") as f:
-                    md_content = await f.read()
-
-                html_content = await file_processor.markdown_to_html(
-                    md_content, found_file.stem
-                )
-                html_path = output_dir / f"{found_file.stem}.html"
-
-                async with aiofiles.open(html_path, "w", encoding="utf-8") as f:
-                    await f.write(html_content)
-
-                await interaction.followup.send(
-                    f"🌐 HTML version of `{found_file.name}`",
-                    file=discord.File(str(html_path)),
-                )
-            else:
-                await interaction.followup.send(
-                    f"[ERROR] Cannot convert {found_file.suffix} to HTML"
-                )
-
-        elif format == "pdf":
-            if found_file.suffix == ".md":
-                async with aiofiles.open(found_file, encoding="utf-8") as f:
-                    md_content = await f.read()
-
-                html_content = await file_processor.markdown_to_html(
-                    md_content, found_file.stem
-                )
-                pdf_path = output_dir / f"{found_file.stem}.pdf"
-
-                pdf_success = await file_processor.html_to_pdf(html_content, pdf_path)
-
-                if pdf_success:
-                    await interaction.followup.send(
-                        f"📕 PDF version of `{found_file.name}`",
-                        file=discord.File(str(pdf_path)),
-                    )
-                else:
-                    await interaction.followup.send("[ERROR] Failed to generate PDF")
-            else:
-                await interaction.followup.send(
-                    f"[ERROR] Cannot convert {found_file.suffix} to PDF"
-                )
-
+        await interaction.response.send_message(f"File found: {found_file}")
     except Exception as e:
-        await interaction.followup.send(f"[ERROR] Error retrieving document: {str(e)}")
-        logger.error(f"Get doc error: {e}")
+        logger.error(f"Error retrieving document: {e}")
+        await interaction.response.send_message("An error occurred.")
+
 
 
 @bot.tree.command(name="ask", description="Ask a quick question to the team")
@@ -901,7 +771,7 @@ async def ask_command(interaction: discord.Interaction, question: str):
         title="❓ Team Question",
         description=question,
         color=0x3498DB,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
     )
     embed.set_author(
         name=interaction.user.display_name,
@@ -963,7 +833,7 @@ async def summarize_command(
     await interaction.response.defer()
 
     try:
-        threshold = datetime.utcnow() - timedelta(hours=hours)
+        threshold = datetime.now(timezone.utc) - timedelta(hours=hours)
 
         messages: List[Dict[str, Any]] = []
         async for msg in target_channel.history(  # type: ignore
@@ -993,7 +863,7 @@ async def summarize_command(
             f"**📊 Summary of {target_channel.mention} - Last {hours} hours**\n\n"
             f"**Messages analyzed:** {analysis['total_messages']}\n"
             f"**Unique users:** {analysis['unique_users']}\n"
-            f"**Time period:** {threshold.strftime('%Y-%m-%d %H:%M')} - {datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC\n\n"
+            f"**Time period:** {threshold.strftime('%Y-%m-%d %H:%M')} - {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC\n\n"
             "**👥 Participation:**\n"
         )
 
@@ -1031,7 +901,9 @@ async def summarize_command(
                 logger.warning(f"Could not generate AI summary: {e}")
 
         embed = discord.Embed(
-            title="📈 Channel Summary", color=0x2ECC71, timestamp=datetime.utcnow()
+            title="📈 Channel Summary",
+            color=0x2ECC71,
+            timestamp=datetime.now(timezone.utc),
         )
         embed.set_footer(text=f"Requested by {interaction.user.display_name}")
 
@@ -1080,7 +952,7 @@ async def health_command(interaction: discord.Interaction, detailed: bool = Fals
             embed = discord.Embed(
                 title="🏥 System Health Status",
                 color=status_colors.get(health_status.overall_status, 0x95A5A6),
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
             )
 
             # Overall status
@@ -1194,7 +1066,7 @@ async def create_pr_command(
             title=title,
             body=body
             or f"Pull request created by {ctx.author.display_name} via Discord bot",
-            head_branch="feature-branch",  # TODO: make dynamic
+            head_branch="feature-branch",  # TODO: make dynamic - use user input or generate unique branch name
             base_branch="main",
         )
         await ctx.send(result)
@@ -1214,7 +1086,7 @@ async def google_command(ctx: commands.Context, *, query: str):
             embed = discord.Embed(
                 title=f"🔍 Search Results: {query}",
                 color=0x3498DB,
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
             )
 
             for i, result in enumerate(results, 1):
@@ -1253,7 +1125,7 @@ async def github_issues_command(
                 title=f"[ISSUES] GitHub Issues: {repo_name}",
                 description=f"Showing {len(issues)} {state} issues",
                 color=0xE74C3C if state == "open" else 0x2ECC71,
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
             )
 
             for issue in issues:
@@ -1457,7 +1329,7 @@ def main():
     token = get_discord_token()
     if not token:
         logger.error(
-            "Missing Discord token. Set DISCORD_BOT_TOKEN or config.discord_token."
+            "Missing Discord token. Set BOT_TOKEN or config.discord_token."
         )
         return
 

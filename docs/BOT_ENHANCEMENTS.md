@@ -121,7 +121,7 @@ result = await heavy_computation(data)
 ### Environment Variables
 
 **Required**:
-- `DISCORD_BOT_TOKEN` - Discord bot token
+ - `BOT_TOKEN` - Discord bot token (preferred; `DISCORD_BOT_TOKEN` accepted for backward compatibility)
 
 **Optional**:
 - `OPENAI_API_KEY` - OpenAI API key for AI features

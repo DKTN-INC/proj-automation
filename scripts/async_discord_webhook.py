@@ -8,7 +8,7 @@ import asyncio
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -147,12 +147,14 @@ class AsyncDiscordWebhook:
                 "title": "📋 Idea Sheet Published",
                 "description": f"**File:** {pdf_file.name}\n**Size:** {file_size / 1024:.1f} KB",
                 "color": 0x3498DB,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "footer": {"text": "Project Automation Platform"},
                 "fields": [
                     {
                         "name": "📅 Generated",
-                        "value": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "value": datetime.now(timezone.utc).strftime(
+                            "%Y-%m-%d %H:%M:%S"
+                        ),
                         "inline": True,
                     }
                 ],
@@ -243,7 +245,7 @@ async def send_notification(
         "title": title,
         "description": message,
         "color": color,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "footer": {"text": "Project Automation Platform"},
     }
 

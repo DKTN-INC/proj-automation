@@ -73,7 +73,7 @@ jobs:
   lint-and-format:
     name: Lint and Format
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -215,7 +215,7 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -247,7 +247,7 @@ jobs:
   build-check:
     name: Build Check
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -282,7 +282,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint-and-format, test]
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -338,13 +338,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint-and-format, test, security, build-check]
     if: always()
-    
+
     steps:
       - name: Check all jobs
         run: |
-          if [[ "${{ needs.lint-and-format.result }}" == "success" && 
-                "${{ needs.test.result }}" == "success" && 
-                "${{ needs.security.result }}" == "success" && 
+          if [[ "${{ needs.lint-and-format.result }}" == "success" &&
+                "${{ needs.test.result }}" == "success" &&
+                "${{ needs.security.result }}" == "success" &&
                 "${{ needs.build-check.result }}" == "success" ]]; then
             echo "✅ All checks passed!"
           else

@@ -151,7 +151,7 @@ Note: if Chocolatey is used, it may require administrator privileges on the runn
 
    Example `.env` values:
    ```
-   DISCORD_BOT_TOKEN=your_discord_bot_token
+   BOT_TOKEN=your_discord_bot_token
    OPENAI_API_KEY=your_openai_api_key            # optional for AI features
    GITHUB_TOKEN=your_github_token                # required for GitHub integration
    ADMIN_USER_IDS=123456789012345678,987654321098765432  # comma-separated Discord user IDs

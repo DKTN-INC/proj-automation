@@ -9,6 +9,7 @@ and AI summarization features for markdown files.
 import argparse
 import asyncio
 import datetime
+from datetime import timezone
 import os
 import re
 import sys
@@ -49,13 +50,20 @@ except ImportError:
         send_pdf_if_webhook_configured = None
 
 
+# Constants for file extensions and template names
+MD_EXTENSION = ".md"
+HTML_EXTENSION = ".html"
+DEFAULT_TEMPLATE_NAME = "default.html"
+TEMPLATES_DIR_NAME = "templates"
+
+
 class MarkdownProcessor:
     """Main class for processing markdown files with enhanced features."""
 
     def __init__(self, template_dir: Optional[str] = None):
         """Initialize the processor with optional template directory."""
         self.template_dir = template_dir or os.path.join(
-            os.path.dirname(__file__), "templates"
+            os.path.dirname(__file__), TEMPLATES_DIR_NAME
         )
         self.setup_jinja_env()
 
@@ -82,18 +90,18 @@ class MarkdownProcessor:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title or 'Document' }}</title>
     <style>
-        body { 
+        body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            max-width: 800px; 
-            margin: 0 auto; 
+            max-width: 800px;
+            margin: 0 auto;
             padding: 2rem;
             line-height: 1.6;
             color: #333;
         }
-        .toc { 
-            background: #f8f9fa; 
-            padding: 1rem; 
-            border-radius: 8px; 
+        .toc {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
             margin: 2rem 0;
             border-left: 4px solid #007bff;
         }
@@ -116,12 +124,12 @@ class MarkdownProcessor:
         table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
         th, td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; }
         th { background-color: #f8f9fa; font-weight: 600; }
-        .metadata { 
-            font-size: 0.9rem; 
-            color: #666; 
-            border-top: 1px solid #eee; 
-            padding-top: 1rem; 
-            margin-top: 2rem; 
+        .metadata {
+            font-size: 0.9rem;
+            color: #666;
+            border-top: 1px solid #eee;
+            padding-top: 1rem;
+            margin-top: 2rem;
         }
     </style>
 </head>
@@ -132,18 +140,18 @@ class MarkdownProcessor:
         <p>{{ summary }}</p>
     </div>
     {% endif %}
-    
+
     {% if toc %}
     <div class="toc">
         <h2>📚 Table of Contents</h2>
         {{ toc | safe }}
     </div>
     {% endif %}
-    
+
     <main>
         {{ content | safe }}
     </main>
-    
+
     {% if metadata %}
     <div class="metadata">
         <p><strong>Generated:</strong> {{ metadata.generated_at }}</p>
@@ -154,7 +162,7 @@ class MarkdownProcessor:
 </body>
 </html>"""
 
-        template_path = os.path.join(self.template_dir, "default.html")
+        template_path = os.path.join(self.template_dir, DEFAULT_TEMPLATE_NAME)
         with open(template_path, "w", encoding="utf-8") as f:
             f.write(default_template)
 
@@ -219,7 +227,9 @@ class MarkdownProcessor:
 
             # Generate metadata
             metadata = {
-                "generated_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "generated_at": datetime.datetime.now(timezone.utc).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                ),
                 "file_path": file_path,
                 "word_count": self.count_words(markdown_content),
             }
@@ -266,7 +276,10 @@ class MarkdownProcessor:
             return False
 
     def process_file(
-        self, input_path: str, output_dir: str, template_name: str = "default.html"
+        self,
+        input_path: str,
+        output_dir: str,
+        template_name: str = DEFAULT_TEMPLATE_NAME,
     ) -> Dict:
         """Process a single markdown file."""
         try:
@@ -277,7 +290,7 @@ class MarkdownProcessor:
                     "success": False,
                 }
 
-            if not input_path.lower().endswith(".md"):
+            if not input_path.lower().endswith(MD_EXTENSION):
                 return {
                     "error": f"Input file must be a markdown file: {input_path}",
                     "success": False,
@@ -332,7 +345,7 @@ class MarkdownProcessor:
         self,
         input_path: str,
         output_dir: str,
-        template_name: str = "default.html",
+        template_name: str = DEFAULT_TEMPLATE_NAME,
         send_to_discord: bool = True,
     ) -> Dict:
         """
@@ -400,7 +413,7 @@ def main():
     parser.add_argument(
         "-t",
         "--template",
-        default="default.html",
+        default=DEFAULT_TEMPLATE_NAME,
         help="HTML template name (default: default.html)",
     )
     parser.add_argument("--template-dir", help="Custom template directory")
@@ -453,7 +466,7 @@ def sync_main(args):
         markdown_files = []
         for root, dirs, files in os.walk(args.input):
             for file in files:
-                if file.lower().endswith(".md"):
+                if file.lower().endswith(MD_EXTENSION):
                     markdown_files.append(os.path.join(root, file))
 
         if not markdown_files:
@@ -512,7 +525,7 @@ async def async_main(args):
         markdown_files = []
         for root, dirs, files in os.walk(args.input):
             for file in files:
-                if file.lower().endswith(".md"):
+                if file.lower().endswith(MD_EXTENSION):
                     markdown_files.append(os.path.join(root, file))
 
         if not markdown_files:

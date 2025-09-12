@@ -5,7 +5,7 @@ Provides functionality to generate campaign briefs and render them as Markdown.
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 
@@ -59,7 +59,7 @@ def generate_campaign_brief(
         channels=channels or [],
         key_messages=key_messages or [],
         success_metrics=success_metrics or [],
-        created_at=datetime.now(),
+        created_at=datetime.now(timezone.utc),
     )
 
 

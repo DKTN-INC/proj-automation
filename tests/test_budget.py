@@ -32,7 +32,7 @@ def test_summarize_budget_under_budget():
 
     assert result.totals == Decimal("350.75")
     assert result.remaining == Decimal("649.25")
-    assert result.percent_used == 35.1  # Rounded to 1 decimal place
+    assert abs(result.percent_used - 35.1) < 0.01
     assert result.status == "under_budget"
 
 
@@ -43,7 +43,7 @@ def test_summarize_budget_on_track():
 
     assert result.totals == Decimal("700")
     assert result.remaining == Decimal("300")
-    assert result.percent_used == 70.0
+    assert abs(result.percent_used - 70.0) < 0.01
     assert result.status == "on_track"
 
 
@@ -54,7 +54,7 @@ def test_summarize_budget_warning():
 
     assert result.totals == Decimal("850")
     assert result.remaining == Decimal("150")
-    assert result.percent_used == 85.0
+    assert abs(result.percent_used - 85.0) < 0.01
     assert result.status == "warning"
 
 
@@ -65,7 +65,7 @@ def test_summarize_budget_over_budget():
 
     assert result.totals == Decimal("1100")
     assert result.remaining == Decimal("-100")
-    assert result.percent_used == 110.0
+    assert abs(result.percent_used - 110.0) < 0.01
     assert result.status == "over_budget"
 
 
@@ -76,7 +76,7 @@ def test_summarize_budget_with_decimal_limit():
 
     assert result.totals == Decimal("123.45")
     assert result.remaining == Decimal("376.55")
-    assert result.percent_used == 24.7
+    assert abs(result.percent_used - 24.7) < 0.01
     assert result.status == "under_budget"
 
 

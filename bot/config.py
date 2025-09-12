@@ -13,13 +13,14 @@ class BotConfig:
 
     def __init__(self):
         # Load environment variables
-        self.discord_token = os.getenv("DISCORD_BOT_TOKEN")
-        self.discord_webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        self.github_token = os.getenv("GITHUB_TOKEN")
-        self.google_api_key = os.getenv("GOOGLE_API_KEY")
-        self.google_cx = os.getenv("GOOGLE_CX")
-        self.guild_id = os.getenv("DISCORD_GUILD_ID")
+    # Prefer BOT_TOKEN (Railway) but keep DISCORD_BOT_TOKEN for backward compatibility
+    self.discord_token = os.getenv("BOT_TOKEN") or os.getenv("DISCORD_BOT_TOKEN")
+    self.discord_webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
+    self.openai_api_key = os.getenv("OPENAI_API_KEY")
+    self.github_token = os.getenv("GITHUB_TOKEN")
+    self.google_api_key = os.getenv("GOOGLE_API_KEY")
+    self.google_cx = os.getenv("GOOGLE_CX")
+    self.guild_id = os.getenv("DISCORD_GUILD_ID")
 
         # Admin user IDs (can be comma-separated)
         admin_ids = os.getenv("DISCORD_ADMIN_IDS", os.getenv("DISCORD_ADMIN_ID", ""))
@@ -68,7 +69,7 @@ class BotConfig:
         is_valid = True
 
         if not self.discord_token:
-            messages.append("ERROR: DISCORD_BOT_TOKEN is required")
+            messages.append("ERROR: BOT_TOKEN (or legacy DISCORD_BOT_TOKEN) is required")
             is_valid = False
         else:
             messages.append("INFO: Discord token configured")

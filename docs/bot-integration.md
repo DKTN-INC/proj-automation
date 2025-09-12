@@ -94,18 +94,18 @@ pip install -r requirements.txt
    ```
 
 2. **Configure Environment Variables:**
-   ```bash
-   # Required
-   DISCORD_BOT_TOKEN=your_discord_bot_token_here
+  ```bash
+  # Required (prefer BOT_TOKEN; DISCORD_BOT_TOKEN accepted for backward compatibility)
+  BOT_TOKEN=your_discord_bot_token_here
    
-   # Optional but recommended
-   OPENAI_API_KEY=your_openai_api_key_here
-   GITHUB_TOKEN=your_github_personal_access_token_here
-   DISCORD_WEBHOOK_URL=your_discord_webhook_url_here
+  # Optional but recommended
+  OPENAI_API_KEY=your_openai_api_key_here
+  GITHUB_TOKEN=your_github_personal_access_token_here
+  DISCORD_WEBHOOK_URL=your_discord_webhook_url_here
    
-   # Admin configuration
-   DISCORD_ADMIN_IDS=123456789012345678,987654321098765432
-   ```
+  # Admin configuration
+  DISCORD_ADMIN_IDS=123456789012345678,987654321098765432
+  ```
 
 ### 4. Optional Services Setup
 

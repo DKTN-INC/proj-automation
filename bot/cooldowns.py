@@ -46,7 +46,7 @@ class CooldownManager:
                 await asyncio.sleep(300)  # Clean up every 5 minutes
                 current_time = time.time()
 
-                for command in list(self._cooldowns.keys()):
+                for command in self._cooldowns.keys():
                     expired_users = [
                         user_id
                         for user_id, next_time in self._cooldowns[command].items()

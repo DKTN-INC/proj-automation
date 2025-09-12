@@ -106,7 +106,7 @@ brew install wkhtmltopdf tesseract
 ### Environment Variables (.env)
 ```bash
 # Required
-DISCORD_BOT_TOKEN=your_discord_bot_token
+BOT_TOKEN=your_discord_bot_token
 
 # Optional (enables specific features)
 OPENAI_API_KEY=your_openai_api_key      # AI features

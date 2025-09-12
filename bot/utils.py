@@ -18,12 +18,17 @@ import hashlib
 import json
 import re
 import tempfile
-import os
 import asyncio as _asyncio
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import markdown
+from jinja2 import Template
+
 import aiosqlite
+import aiofiles
+import logging
+logger = logging.getLogger(__name__)
 
 
 # Optional dependencies and availability flags
@@ -89,11 +94,6 @@ except ImportError:
     WEB_AVAILABLE = False
 
 # Markdown / PDF
-import contextlib
-
-import markdown
-from jinja2 import Template
-
 
 try:
     import pdfkit
@@ -589,7 +589,9 @@ class FileProcessor:
         # injected scripts when HTML is viewed or converted to PDF.
         try:
             # A lightweight removal of script tags; avoid heavy deps here.
-            rendered = re.sub(r"<script[\s\S]*?>[\s\S]*?<\/script>", "", rendered, flags=re.IGNORECASE)
+            rendered = re.sub(
+                r"<script[\s\S]*?>[\s\S]*?<\/script>", "", rendered, flags=re.IGNORECASE
+            )
         except Exception:
             pass
 
@@ -638,55 +640,31 @@ class CodeAnalyzer:
 
     @staticmethod
     async def lint_python_code(code: str) -> List[str]:
-        """Lint Python code using flake8."""
+        """Lint Python code with reduced complexity."""
+        issues = []
         try:
-            # Create a secure temp file path
-            fd, temp_path = tempfile.mkstemp(suffix=".py")
-            os.close(fd)
+            temp_path = Path(tempfile.mktemp(suffix=".py"))
+            async with aiofiles.open(temp_path, "w", encoding="utf-8") as f:
+                await f.write(code)
 
-            # Write file asynchronously to avoid blocking the event loop
-            try:
-                import aiofiles
-
-                async with aiofiles.open(temp_path, "w", encoding="utf-8") as f:
-                    await f.write(code)
-            except Exception:
-                # Fallback to synchronous write if aiofiles not available
-                with open(temp_path, "w", encoding="utf-8") as f:
-                    f.write(code)
-
-            # Use asyncio subprocess to avoid blocking
             proc = await _asyncio.create_subprocess_exec(
-                "flake8",
-                "--select=E,W,F",
-                temp_path,
+                "flake8", str(temp_path),
                 stdout=_asyncio.subprocess.PIPE,
-                stderr=_asyncio.subprocess.PIPE,
-                )
+                stderr=_asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await proc.communicate()
 
-            stdout, _ = await proc.communicate()
-
-            with contextlib.suppress(Exception):
-                Path(temp_path).unlink()
-
-            if proc.returncode == 0:
-                return ["✅ No linting issues found!"]
-            else:
-                output = (stdout or b"").decode(errors="replace")
-                issues: List[str] = []
-                for line in output.splitlines():
-                    if line.strip():
-                        parts = line.split(":", 3)
-                        if len(parts) >= 4:
-                            line_num = parts[1]
-                            col_num = parts[2]
-                            message = parts[3].strip()
-                            issues.append(f"Line {line_num}:{col_num} - {message}")
-                return issues if issues else ["[ERROR] Linting failed"]
-        except FileNotFoundError:
-            return ["[ERROR] flake8 not installed - install with: pip install flake8"]
+            if stdout:
+                issues.extend(stdout.decode().splitlines())
+            if stderr:
+                logger.error(f"Linting error: {stderr.decode()}")
         except Exception as e:
-            return [f"[ERROR] Linting error: {str(e)}"]
+            logger.error(f"Error during linting: {e}")
+        finally:
+            if temp_path.exists():
+                temp_path.unlink()
+
+        return issues
 
 
 # -----------------------------------------------------------------------------
@@ -703,6 +681,10 @@ class GitHubHelper:
         else:
             self.github = None
             self.available = False
+            if not token:
+                logger.error("GitHub token is missing in the configuration.")
+            if not GITHUB_AVAILABLE:
+                logger.error("GitHub integration is disabled.")
 
     async def create_pr(
         self,

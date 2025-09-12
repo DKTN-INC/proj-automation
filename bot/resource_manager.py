@@ -12,9 +12,9 @@ import os
 import tempfile
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, Generic, Optional, TypeVar
+from typing import Any, Callable, Dict, Generic, Optional, TypeVar, AsyncGenerator
 
 import aiohttp
 
@@ -92,7 +92,9 @@ class ResourceManager(Generic[T]):
         async with self._lock:
             if key in self._resources:
                 # Update last accessed time
-                self._resource_metadata[key]["last_accessed"] = datetime.now()
+                self._resource_metadata[key]["last_accessed"] = datetime.now(
+                    timezone.utc
+                )
                 return self._resources[key]
 
             # Check resource limits
@@ -108,8 +110,8 @@ class ResourceManager(Generic[T]):
                 )
                 self._resources[key] = resource
                 self._resource_metadata[key] = {
-                    "created_at": datetime.now(),
-                    "last_accessed": datetime.now(),
+                    "created_at": datetime.now(timezone.utc),
+                    "last_accessed": datetime.now(timezone.utc),
                     "access_count": 0,
                 }
 
@@ -146,7 +148,7 @@ class ResourceManager(Generic[T]):
             return
 
         async with self._lock:
-            current_time = datetime.now()
+            current_time = datetime.now(timezone.utc)
             expired_keys = []
 
             for key, metadata in self._resource_metadata.items():
@@ -253,7 +255,7 @@ class FileManager:
     @asynccontextmanager
     async def temporary_file(
         self, suffix: str = ".tmp", prefix: str = "automation_"
-    ) -> Path:
+    ) -> AsyncGenerator[Path, None]:
         """Create a temporary file with automatic cleanup."""
         temp_file = None
         file_id = None
@@ -269,7 +271,7 @@ class FileManager:
             async with self._lock:
                 self._temp_files[file_id] = temp_file
                 self._file_metadata[file_id] = {
-                    "created_at": datetime.now(),
+                    "created_at": datetime.now(timezone.utc),
                     "suffix": suffix,
                     "prefix": prefix,
                 }
@@ -293,7 +295,7 @@ class FileManager:
 
     async def cleanup_old_files(self) -> None:
         """Cleanup old temporary files."""
-        current_time = datetime.now()
+        current_time = datetime.now(timezone.utc)
         max_age = timedelta(hours=self.max_age_hours)
 
         async with self._lock:
@@ -356,7 +358,9 @@ class HTTPSessionManager:
             if key in self._sessions:
                 session = self._sessions[key]
                 if not session.closed:
-                    self._session_metadata[key]["last_used"] = datetime.now()
+                    self._session_metadata[key]["last_used"] = datetime.now(
+                        timezone.utc
+                    )
                     return session
                 else:
                     # Session is closed, remove it
@@ -381,8 +385,8 @@ class HTTPSessionManager:
 
             self._sessions[key] = session
             self._session_metadata[key] = {
-                "created_at": datetime.now(),
-                "last_used": datetime.now(),
+                "created_at": datetime.now(timezone.utc),
+                "last_used": datetime.now(timezone.utc),
                 "request_count": 0,
             }
 
@@ -446,7 +450,7 @@ class MemoryManager:
         self.gc_threshold_mb = gc_threshold_mb
         self._objects_tracked = 0
 
-    async def force_garbage_collection(self) -> Dict[str, int]:
+    def force_garbage_collection(self) -> Dict[str, int]:
         """Force garbage collection and return statistics."""
         logger.debug("Forcing garbage collection")
 

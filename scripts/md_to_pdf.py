@@ -149,9 +149,9 @@ def markdown_to_html(md_content, title="Document"):
     html_content = md.convert(md_content)
 
     # Get current timestamp
-    from datetime import datetime
+    from datetime import datetime, timezone
 
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
     # Fill in the template
     return html_template.format(

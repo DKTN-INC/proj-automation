@@ -10,7 +10,7 @@ import logging
 import random
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 from typing import Any, Callable, Optional, Tuple, Type, TypeVar
 
@@ -188,7 +188,7 @@ class RetryHandler:
 
         while True:
             attempt += 1
-            start_time = datetime.now()
+            start_time = datetime.now(timezone.utc)
 
             try:
                 if asyncio.iscoroutinefunction(func):
@@ -204,7 +204,7 @@ class RetryHandler:
                         attempt=attempt,
                         delay=0,
                         start_time=start_time,
-                        end_time=datetime.now(),
+                        end_time=datetime.now(timezone.utc),
                         success=True,
                     )
                 )
@@ -213,7 +213,7 @@ class RetryHandler:
                 return result
 
             except Exception as e:
-                end_time = datetime.now()
+                end_time = datetime.now(timezone.utc)
 
                 if self.strategy.should_retry(attempt, e):
                     delay = self.strategy.get_delay(attempt)
@@ -262,7 +262,7 @@ class RetryHandler:
 
         while True:
             attempt += 1
-            start_time = datetime.now()
+            start_time = datetime.now(timezone.utc)
 
             try:
                 result = func(*args, **kwargs)
@@ -273,7 +273,7 @@ class RetryHandler:
                         attempt=attempt,
                         delay=0,
                         start_time=start_time,
-                        end_time=datetime.now(),
+                        end_time=datetime.now(timezone.utc),
                         success=True,
                     )
                 )
@@ -282,7 +282,7 @@ class RetryHandler:
                 return result
 
             except Exception as e:
-                end_time = datetime.now()
+                end_time = datetime.now(timezone.utc)
 
                 if self.strategy.should_retry(attempt, e):
                     delay = self.strategy.get_delay(attempt)

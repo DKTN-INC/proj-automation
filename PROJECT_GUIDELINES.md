@@ -205,7 +205,7 @@ cp .env.example .env
 
 | Secret Type | Environment Variable | Purpose |
 |-------------|---------------------|---------|
-| Discord Bot | `DISCORD_BOT_TOKEN` | Bot authentication |
+| Discord Bot | `BOT_TOKEN` | Bot authentication (Railway standard; `DISCORD_BOT_TOKEN` also accepted)
 | Discord Webhook | `DISCORD_WEBHOOK_URL` | PDF publishing |
 | OpenAI API | `OPENAI_API_KEY` | AI-powered features |
 | GitHub | `GITHUB_TOKEN` | Repository integration |
@@ -253,7 +253,8 @@ Copy `.env.example` to `.env` and configure:
 
 ```bash
 # Core Bot Configuration
-DISCORD_BOT_TOKEN=your_bot_token_here
+# Prefer BOT_TOKEN (Railway); DISCORD_BOT_TOKEN is accepted for compatibility
+BOT_TOKEN=your_bot_token_here
 DISCORD_WEBHOOK_URL=your_webhook_url_here
 DISCORD_ADMIN_IDS=123456789012345678,987654321098765432
 
