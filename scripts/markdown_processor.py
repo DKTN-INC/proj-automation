@@ -267,12 +267,29 @@ class MarkdownProcessor:
             # Create output directory if it doesn't exist
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-            # Convert HTML to PDF
-            html_doc = weasyprint.HTML(string=html_content)
-            html_doc.write_pdf(output_path)
-            return True
+            # Convert HTML to PDF using WeasyPrint when available
+            if WEASYPRINT_AVAILABLE and weasyprint is not None:
+                try:
+                    html_doc = weasyprint.HTML(string=html_content)
+                    html_doc.write_pdf(output_path)
+                    return True
+                except Exception as e:
+                    print(f"WeasyPrint conversion failed: {e}", file=sys.stderr)
+
+            # Fallback: use wkhtmltopdf via the md_to_pdf helper (pdfkit)
+            try:
+                # Import locally to avoid hard dependency if pdfkit isn't needed
+                import pdfkit
+
+                # Use pdfkit to render HTML string to PDF
+                # pdfkit.from_string handles writing to a file directly
+                pdfkit.from_string(html_content, output_path)
+                return True
+            except Exception as e:
+                print(f"Fallback wkhtmltopdf/pdfkit conversion failed: {e}", file=sys.stderr)
+                return False
         except Exception as e:
-            print(f"Error converting to PDF: {e}", file=sys.stderr)
+            print(f"Unexpected error during PDF conversion: {e}", file=sys.stderr)
             return False
 
     def process_file(

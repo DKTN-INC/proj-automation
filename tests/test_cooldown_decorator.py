@@ -53,7 +53,7 @@ async def test_cooldown_decorator_applies_and_blocks():
     interaction = FakeInteraction(user_id=1, command_name="test_cmd")
 
     # First call should execute and defer the interaction
-    result = await test_command(interaction)
+    await test_command(interaction)
     assert called["count"] == 1
     assert interaction.response.deferred is True
 

@@ -447,7 +447,7 @@ class AIHelper:
     async def generate_unit_tests(self, code: str, language: str = "python") -> str:
         """Generate unit test stubs for code."""
         if not self.available:
-            return f"# Unit test generation not available (Google API key required)"
+            return "# Unit test generation not available (Google API key required)"
 
         try:
             response = await self.model.generate_content_async(

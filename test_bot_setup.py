@@ -7,7 +7,6 @@ Verifies that the bot can be imported and basic functionality works
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
-import os
 
 # Ensure project root and bot package are importable
 project_root = Path(__file__).parent

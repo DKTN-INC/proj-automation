@@ -198,6 +198,34 @@ Note: if Chocolatey is used, it may require administrator privileges on the runn
 
 3. Test Complete Workflow:
    - Create a new Markdown file in `docs/ideasheets/`
+
+## WeasyPrint native dependencies
+
+WeasyPrint requires native libraries (GTK/Cairo/Pango and libffi) for PDF rendering. If PDF conversion fails with an OSError or import error mentioning cairo/pango, install the native libs for your platform:
+
+- Windows (PowerShell as Administrator):
+```powershell
+choco install gtk-runtime cairo pango libffi -y
+# Or use the GTK-for-Windows runtime installer: https://github.com/tschoonj/GTK-for-Windows-Runtime-Installer
+```
+
+- Ubuntu / Debian:
+```bash
+sudo apt-get update
+sudo apt-get install -y libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0 libffi-dev shared-mime-info
+```
+
+- macOS (Homebrew):
+```bash
+brew install cairo pango gdk-pixbuf libffi
+```
+
+After installing native libraries, reinstall or upgrade the Python package in your virtualenv:
+```bash
+pip install --upgrade weasyprint
+```
+
+If you cannot install native libs on your CI runner, consider disabling the Weasy fail-fast check (see CI workflow inputs) or use the `wkhtmltopdf` fallback which the project supports.
    - Commit and push to GitHub
    - Watch GitHub Actions run the automation workflow
    - Check Discord for the generated PDF
