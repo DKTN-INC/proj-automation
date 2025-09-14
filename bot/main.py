@@ -207,7 +207,13 @@ async def on_message(message: discord.Message):
 @log_command_execution(logger)
 async def ask_command(interaction: discord.Interaction, question: str):
     """Handles the /ask command with token optimization, rate-limiting, and fallback for quota errors."""
-    await interaction.response.defer()
+    # Only defer if not already acknowledged by middleware/decorators
+    try:
+        if not interaction.response.is_done():
+            await interaction.response.defer()
+    except Exception:
+        # Interaction may have already expired; the cooldown wrapper logs this.
+        logger.debug("ask_command: defer skipped or failed; interaction may be timed out")
 
     # Removed unused variable `create_thread`
     if question.lower().startswith("/thread"):

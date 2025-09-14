@@ -220,6 +220,16 @@ class CooldownDecorator:
                 # Not a Discord interaction, just call the function
                 return await func(*args, **kwargs)
 
+            # Acknowledge the interaction ASAP to avoid token expiry.
+            # If the command or other decorators already deferred, this is a no-op.
+            try:
+                if hasattr(interaction, "response") and not interaction.response.is_done():
+                    # Defer without showing typing (ephemeral handled later by command)
+                    await interaction.response.defer()
+            except Exception:
+                # If deferring fails, continue — the command may still attempt to respond.
+                logger.debug("early defer in cooldown wrapper failed or interaction timed out")
+
             user_id = interaction.user.id
             command_name = interaction.command.name
 
