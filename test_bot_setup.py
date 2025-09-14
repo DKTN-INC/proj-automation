@@ -6,11 +6,19 @@ Verifies that the bot can be imported and basic functionality works
 
 import sys
 from pathlib import Path
+from dotenv import load_dotenv
+import os
 
+# Ensure project root and bot package are importable
+project_root = Path(__file__).parent
+bot_dir = project_root / "bot"
+sys.path.insert(0, str(project_root))
 
-# Add the bot directory to the path
-bot_dir = Path(__file__).parent / "bot"
-sys.path.insert(0, str(bot_dir))
+# Load environment from .env at project root if present
+env_path = project_root / ".env"
+if env_path.exists():
+    load_dotenv(dotenv_path=str(env_path))
+
 
 
 def test_imports():
@@ -26,25 +34,25 @@ def test_imports():
 
         print("✅ Discord.py imported successfully")
 
-        # Test feature imports
+        # Test feature imports under the `bot` package
         import importlib
 
         # Optional feature imports - import dynamically to avoid unused-import lints
         try:
-            importlib.import_module("features.budget")
+            importlib.import_module("bot.features.budget")
             print("✅ Budget features module available")
         except ImportError as e:
             print(f"⚠️  Budget features import failed: {e}")
 
         try:
-            importlib.import_module("features.marketing")
+            importlib.import_module("bot.features.marketing")
             print("✅ Marketing features module available")
         except ImportError as e:
             print(f"⚠️  Marketing features import failed: {e}")
 
         # Test utility imports
         try:
-            importlib.import_module("utils.ai_helper")
+            importlib.import_module("bot.utils.ai_helper")
             print("✅ AI helper module available")
         except ImportError as e:
             print(f"⚠️  AI helper import failed: {e}")
@@ -61,7 +69,11 @@ def test_config():
     print("\n🧪 Testing configuration...")
 
     try:
-        from config import config
+        # Prefer explicit package import
+        try:
+            from bot.config import config
+        except Exception:
+            from config import config
 
         # Check if required environment variables are set
         if hasattr(config, "discord_token") and config.discord_token:

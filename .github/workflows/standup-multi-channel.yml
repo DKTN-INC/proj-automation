@@ -31,21 +31,21 @@ on:
 jobs:
   standup:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests python-dateutil markdown jinja2 pytz
-      
+
       - name: Validate and parse inputs
         run: |
           echo "Validating inputs..."
@@ -54,18 +54,18 @@ jobs:
           FORMAT="${{ github.event.inputs.format || 'markdown' }}"
           INCLUDE_ANALYTICS="${{ github.event.inputs.include_analytics || true }}"
           echo "Channels: $CHANNELS, Team: $TEAM, Format: $FORMAT, Include Analytics: $INCLUDE_ANALYTICS"
-          
+
           # Validate team name
           if [[ ! "$TEAM" =~ ^[a-zA-Z0-9_-]+$ ]]; then
             echo "❌ Error: Invalid team name format: $TEAM"
             exit 1
           fi
-          
+
           # Validate and parse channels
           echo "Parsing channels: $CHANNELS"
           IFS=',' read -ra CHANNEL_ARRAY <<< "$CHANNELS"
           VALID_CHANNELS=""
-          
+
           for channel in "${CHANNEL_ARRAY[@]}"; do
             # Trim whitespace and validate channel name
             channel=$(echo "$channel" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
@@ -79,34 +79,34 @@ jobs:
               echo "⚠️  Warning: Skipping invalid channel name: $channel"
             fi
           done
-          
+
           if [ -z "$VALID_CHANNELS" ]; then
             echo "❌ Error: No valid channels specified"
             exit 1
           fi
-          
+
           echo "✅ Valid channels: $VALID_CHANNELS"
           echo "✅ Team: $TEAM"
           echo "✅ Format: $FORMAT"
-          
+
           # Set environment variables
           echo "CHANNELS=$VALID_CHANNELS" >> $GITHUB_ENV
           echo "TEAM=$TEAM" >> $GITHUB_ENV
           echo "FORMAT=$FORMAT" >> $GITHUB_ENV
           echo "INCLUDE_ANALYTICS=$INCLUDE_ANALYTICS" >> $GITHUB_ENV
-        
+
       - name: Create multi-channel standup structure
         run: |
           echo "🏗️  Creating multi-channel standup structure..."
-          
+
           # Create output directory
           mkdir -p multi-channel-standup
-          
+
           # Generate metadata for each channel
           IFS=',' read -ra CHANNEL_ARRAY <<< "$CHANNELS"
           for channel in "${CHANNEL_ARRAY[@]}"; do
             mkdir -p "multi-channel-standup/$channel"
-            
+
             cat > "multi-channel-standup/$channel/metadata.json" << EOF
           {
             "channel": "$channel",
@@ -121,10 +121,10 @@ jobs:
             "output_format": "$FORMAT"
           }
           EOF
-            
+
             echo "✅ Created structure for channel: $channel"
           done
-          
+
           # Create master metadata
           cat > multi-channel-standup/master_metadata.json << EOF
           {
@@ -136,20 +136,20 @@ jobs:
             "format": "$FORMAT"
           }
           EOF
-          
+
           echo "✅ Multi-channel structure created"
-      
+
       - name: Collect repository insights
         if: env.INCLUDE_ANALYTICS == 'true'
         run: |
           echo "📊 Collecting repository insights for analytics..."
-          
+
           python3 - << 'EOF'
           import json
           import subprocess
           import os
           from datetime import datetime, timedelta
-          
+
           def run_git_command(cmd):
               """Run git command and return output"""
               try:
@@ -157,69 +157,69 @@ jobs:
                   return result.stdout.strip() if result.returncode == 0 else ""
               except Exception:
                   return ""
-          
+
           # Collect various time periods
           periods = {
               "24h": "24 hours ago",
               "7d": "7 days ago",
               "30d": "30 days ago"
           }
-          
+
           insights = {
               "collection_time": datetime.utcnow().isoformat() + "Z",
               "periods": {}
           }
-          
+
           for period, since in periods.items():
               since_date = datetime.utcnow() - timedelta(
-                  hours=24 if period == "24h" else 
+                  hours=24 if period == "24h" else
                   days=7 if period == "7d" else 30
               )
               since_str = since_date.strftime('%Y-%m-%dT%H:%M:%SZ')
-              
+
               # Get commit count
               commit_count = run_git_command(f'git rev-list --count --since="{since_str}" HEAD')
-              
+
               # Get unique authors
               authors = run_git_command(f'git shortlog -sn --since="{since_str}" HEAD')
               author_count = len([line for line in authors.split('\n') if line.strip()])
-              
+
               # Get files changed
               files_changed = run_git_command(f'git diff --name-only --since="{since_str}" HEAD')
               file_count = len([f for f in files_changed.split('\n') if f.strip()])
-              
+
               insights["periods"][period] = {
                   "commits": int(commit_count) if commit_count.isdigit() else 0,
                   "authors": author_count,
                   "files_changed": file_count,
                   "since": since_str
               }
-          
+
           # Save insights
           with open('multi-channel-standup/repository_insights.json', 'w') as f:
               json.dump(insights, f, indent=2)
-          
+
           print("✅ Repository insights collected")
           print(f"Insights: {json.dumps(insights, indent=2)}")
           EOF
-      
+
       - name: Generate channel-specific content
         run: |
           echo "📝 Generating content for each channel..."
-          
+
           IFS=',' read -ra CHANNEL_ARRAY <<< "$CHANNELS"
-          
+
           for channel in "${CHANNEL_ARRAY[@]}"; do
             echo "Processing channel: $channel"
-            
+
             # Generate channel-specific activity
             python3 - << EOF
           import json
           import os
-          
+
           channel = "$channel"
           team = "$TEAM"
-          
+
           # Create sample activity data (in real implementation, this would fetch from Discord API)
           activity = {
               "channel": channel,
@@ -230,57 +230,57 @@ jobs:
               "sentiment": "positive",
               "last_activity": "2 hours ago"
           }
-          
+
           with open(f'multi-channel-standup/{channel}/activity.json', 'w') as f:
               json.dump(activity, f, indent=2)
-          
+
           EOF
-          
+
             echo "✅ Generated activity for channel: $channel"
           done
-      
+
       - name: Generate multi-channel digest
         run: |
           echo "📋 Generating multi-channel digest in $FORMAT format..."
-          
+
           case "$FORMAT" in
             markdown)
               python3 - << 'EOF'
           import json
           import os
           from datetime import datetime
-          
+
           # Read master metadata
           with open('multi-channel-standup/master_metadata.json', 'r') as f:
               master_meta = json.load(f)
-          
+
           # Read repository insights if available
           insights = {}
           if os.path.exists('multi-channel-standup/repository_insights.json'):
               with open('multi-channel-standup/repository_insights.json', 'r') as f:
                   insights = json.load(f)
-          
+
           # Generate markdown digest
           content = f"""# Multi-Channel Standup Digest
-          
-          **Team:** {master_meta['team']}  
-          **Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}  
-          **Channels:** {', '.join(master_meta['channels'])}  
+
+          **Team:** {master_meta['team']}
+          **Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}
+          **Channels:** {', '.join(master_meta['channels'])}
           **Triggered by:** {master_meta.get('triggered_by', 'Unknown')}
-          
+
           ## 📊 Repository Activity Summary
-          
+
           """
-          
+
           if insights and 'periods' in insights:
               content += "| Period | Commits | Authors | Files Changed |\n"
               content += "|--------|---------|---------|---------------|\n"
               for period, data in insights['periods'].items():
                   content += f"| {period} | {data['commits']} | {data['authors']} | {data['files_changed']} |\n"
               content += "\n"
-          
+
           content += "## 📺 Channel-Specific Activity\n\n"
-          
+
           # Process each channel
           channels = master_meta['channels']
           for channel in channels:
@@ -288,50 +288,50 @@ jobs:
               if os.path.exists(activity_file):
                   with open(activity_file, 'r') as f:
                       activity = json.load(f)
-                  
+
                   content += f"""### #{channel}
-          
+
           - **Messages (24h):** {activity.get('message_count_24h', 'N/A')}
           - **Active Users:** {activity.get('active_users_24h', 'N/A')}
           - **Top Topics:** {', '.join(activity.get('top_topics', []))}
           - **Sentiment:** {activity.get('sentiment', 'neutral')}
           - **Last Activity:** {activity.get('last_activity', 'Unknown')}
-          
+
           """
-          
+
           content += f"""---
-          
+
           ## 🔗 Workflow Information
-          
+
           - **Repository:** {master_meta.get('repository', 'Unknown')}
           - **Workflow Run:** #{master_meta.get('workflow_run', 'Unknown')}
           - **Generated:** {master_meta['generated_at']}
-          
+
           *This digest was automatically generated by GitHub Actions*
           """
-          
+
           with open('multi-channel-standup/digest.md', 'w') as f:
               f.write(content)
-          
+
           print("✅ Markdown digest generated")
           EOF
               ;;
-            
+
             html|json)
               python3 - << 'EOF'
           import json
           import os
           from datetime import datetime
-          
+
           # Read all data
           with open('multi-channel-standup/master_metadata.json', 'r') as f:
               master_meta = json.load(f)
-          
+
           insights = {}
           if os.path.exists('multi-channel-standup/repository_insights.json'):
               with open('multi-channel-standup/repository_insights.json', 'r') as f:
                   insights = json.load(f)
-          
+
           # Collect channel activities
           channel_activities = {}
           for channel in master_meta['channels']:
@@ -339,9 +339,9 @@ jobs:
               if os.path.exists(activity_file):
                   with open(activity_file, 'r') as f:
                       channel_activities[channel] = json.load(f)
-          
+
           format_type = os.environ.get('FORMAT', 'markdown')
-          
+
           if format_type == 'html':
               # Generate HTML
               html_content = f"""<!DOCTYPE html>
@@ -369,23 +369,23 @@ jobs:
                       <p><strong>Channels:</strong> {', '.join(master_meta['channels'])}</p>
                       <p><strong>Generated:</strong> {master_meta['generated_at']}</p>
                   </div>"""
-              
+
               if insights and 'periods' in insights:
                   html_content += """
                   <h2>📊 Repository Activity</h2>
                   <div class="metrics">"""
-                  
+
                   for period, data in insights['periods'].items():
                       html_content += f"""
                       <div class="metric">
                           <div class="metric-value">{data['commits']}</div>
                           <div>Commits ({period})</div>
                       </div>"""
-                  
+
                   html_content += "</div>"
-              
+
               html_content += "<h2>📺 Channel Activities</h2>"
-              
+
               for channel, activity in channel_activities.items():
                   html_content += f"""
                   <div class="channel">
@@ -395,14 +395,14 @@ jobs:
                       <p><strong>Top Topics:</strong> {', '.join(activity.get('top_topics', []))}</p>
                       <p><strong>Sentiment:</strong> {activity.get('sentiment', 'neutral')}</p>
                   </div>"""
-              
+
               html_content += """
               </body>
               </html>"""
-              
+
               with open('multi-channel-standup/digest.html', 'w') as f:
                   f.write(html_content)
-          
+
           else:  # JSON format
               digest_data = {
                   "multi_channel_standup": {
@@ -416,22 +416,22 @@ jobs:
                       }
                   }
               }
-              
+
               with open('multi-channel-standup/digest.json', 'w') as f:
                   json.dump(digest_data, f, indent=2)
-          
+
           print(f"✅ {format_type.upper()} digest generated")
           EOF
               ;;
           esac
-      
+
       - name: Upload multi-channel artifacts
         uses: actions/upload-artifact@v3
         with:
           name: multi-channel-standup-${{ env.TEAM }}-${{ github.run_id }}
           path: multi-channel-standup/
           retention-days: 7
-      
+
       - name: Generate summary output
         run: |
           echo "🎉 Multi-channel standup digest completed!"
@@ -447,17 +447,17 @@ jobs:
           find multi-channel-standup -type f | sort
           echo ""
           echo "🔗 Download artifacts from workflow summary"
-          
+
           # Output key metrics for GitHub summary
           if [ -f "multi-channel-standup/repository_insights.json" ]; then
             echo ""
             echo "## 📈 Quick Stats"
             python3 - << 'EOF'
           import json
-          
+
           with open('multi-channel-standup/repository_insights.json', 'r') as f:
               insights = json.load(f)
-          
+
           if 'periods' in insights:
               print(f"- Commits (24h): {insights['periods'].get('24h', {}).get('commits', 0)}")
               print(f"- Authors (7d): {insights['periods'].get('7d', {}).get('authors', 0)}")
