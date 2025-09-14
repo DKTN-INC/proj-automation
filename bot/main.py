@@ -42,25 +42,25 @@ if _ffmpeg_path:
 try:
     from bot.config import config
 
-    from . import ideas, tasks
+    from bot import ideas, tasks
 
     # utils module is optional for runtime features; imported lazily where needed
-    from .circuit_breaker import circuit_manager
-    from .cooldowns import cooldown
-    from .google_api_wrapper import GoogleAPIWrapper
-    from .health_monitor import (
+    from bot.circuit_breaker import circuit_manager
+    from bot.cooldowns import cooldown
+    from bot.google_api_wrapper import GoogleAPIWrapper
+    from bot.health_monitor import (
         health_monitor,
         register_health_check,
         start_health_monitoring,
         stop_health_monitoring,
     )
-    from .logging_config import (
+    from bot.logging_config import (
         log_bot_event,
         log_command_execution,
         setup_logging,
     )
-    from .resource_manager import cleanup_resources, get_resource_stats
-    from .thread_pool import (
+    from bot.resource_manager import cleanup_resources, get_resource_stats
+    from bot.thread_pool import (
         parse_discord_messages,
         shutdown_thread_pool,
     )
@@ -69,7 +69,7 @@ except ImportError:
     from config import config
     from cooldowns import cooldown
 
-    from .google_api_wrapper import GoogleAPIWrapper
+    from bot.google_api_wrapper import GoogleAPIWrapper
 
     # Fallback for missing modules
     circuit_manager = None
