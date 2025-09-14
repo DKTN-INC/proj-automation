@@ -1,118 +1,53 @@
-# Core markdown processing and templating de# Async file operations
-aiofilesndencies
-markdown>=3.5.0
-Jinja2>=3.1.0
-weasyprint>=59.0
-pdfkit>=1.0.0
+# Cleaned and deduplicated requirements
 
-# For enhanced markdown features
-pymdown-extensions>=10.0.0
-
-# Discord Bot Dependencies
-discord.py>=2.3.0
-python-dotenv>=1.0.0
-
-# Core markdown processing and templating dependencies
+# Async I/O and HTTP
 aiofiles
+aiohttp>=3.8.0
+
+# Database and async utils
+aiosqlite>=0.19.0
+
+# Markdown and templating
 markdown>=3.5.0
 Jinja2>=3.1.0
+pymdown-extensions>=10.0.0
+
+# PDF / HTML rendering
 weasyprint>=59.0
 pdfkit>=1.0.0
 
-# For enhanced markdown features
-pymdown-extensions>=10.0.0
-
-# Discord Bot Dependencies
+# Discord bot
 discord.py>=2.3.0
 python-dotenv>=1.0.0
 
+# Google / AI
 google-generativeai>=0.1.0
 
 # File processing and OCR
 Pillow>=10.0.0
 pytesseract>=0.3.10
 
-# Audio processing for voice transcription
+# Audio processing
 pydub>=0.25.1
 
-# Database for conversation memory
-aiosqlite>=0.19.0
-
-# Code analysis and linting
-flake8>=6.0.0
-
-# GitHub API integration
-PyGithub>=1.59.0
-
-# Web scraping and search
-beautifulsoup4>=4.12.0
-aiohttp>=3.8.0
-
-# File type detection
-python-magic>=0.4.27
-
-# Date and time utilities
+# Utilities
 python-dateutil>=2.8.0
-
-# Image processing utilities
-# Core markdown processing and templating dependencies
-aiofiles
-markdown>=3.5.0
-Jinja2>=3.1.0
-weasyprint>=59.0
-pdfkit>=1.0.0
-
-# For enhanced markdown features
-pymdown-extensions>=10.0.0
-
-# Discord Bot Dependencies
-discord.py>=2.3.0
-python-dotenv>=1.0.0
-
-google-generativeai>=0.1.0
-
-# File processing and OCR
-Pillow>=10.0.0
-pytesseract>=0.3.10
-
-# Audio processing for voice transcription
-pydub>=0.25.1
-
-# Database for conversation memory
-aiosqlite>=0.19.0
-
-# Code analysis and linting
-flake8>=6.0.0
-
-# GitHub API integration
-PyGithub>=1.59.0
-
-# Web scraping and search
-beautifulsoup4>=4.12.0
-aiohttp>=3.8.0
-
-# File type detection
 python-magic>=0.4.27
-
-# Date and time utilities
-python-dateutil>=2.8.0
-
-# Image processing utilities
-opencv-python-headless>=4.8.0
-
-# HTTP client for async operations
-# aiohttp already declared above
-
-# For potential AI integration (optional, lightweight)
 requests>=2.31.0
 
-# Additional useful packages
+# Image processing
+opencv-python-headless>=4.8.0
+
+# Linting / GitHub integration
+flake8>=6.0.0
+PyGithub>=1.59.0
+
+# Web scraping / search
+beautifulsoup4>=4.12.0
 
 # Cloud SDKs
 boto3>=1.28.0
 
-# For better error handling and logging
-colorama>=0.4.6       # For colored terminal output
-
-# System monitoring for health checks
-psutil>=5.9.0         # For system resource monitoring
+# Misc
+colorama>=0.4.6
+psutil>=5.9.0
