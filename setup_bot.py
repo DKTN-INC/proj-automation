@@ -28,7 +28,7 @@ def main():
     }
 
     optional_vars = {
-        "OPENAI_API_KEY": "OpenAI API key (for AI features)",
+        "GOOGLE_API_KEY": "Google API key (for AI features)",
         "LOG_LEVEL": "Logging level (DEBUG, INFO, WARNING, ERROR)",
         "STRUCTURED_LOGS": "Use structured JSON logging (true/false)",
         "LOG_FILE": "Path to log file (optional)",
@@ -61,11 +61,11 @@ def main():
         print("  ❌ discord.py not installed")
 
     try:
-        import openai
+        import google.generativeai
 
-        print(f"  ✅ openai: {openai.__version__}")
+        print(f"  ✅ google-generativeai: {google.generativeai.__version__}")
     except ImportError:
-        print("  ❌ openai not installed")
+        print("  ❌ google-generativeai not installed")
 
     try:
         import aiohttp
@@ -80,9 +80,9 @@ def main():
     sys.path.insert(0, "bot")
 
     try:
-        print("  ✅ OpenAI wrapper")
+        print("  ✅ Google API wrapper")
     except Exception as e:
-        print(f"  ❌ OpenAI wrapper: {e}")
+        print(f"  ❌ Google API wrapper: {e}")
 
     try:
         print("  ✅ Message chunker")
@@ -112,7 +112,7 @@ def main():
     print("BOT_TOKEN=your_discord_bot_token_here")
     print()
     print("# Optional - AI Features")
-    print("OPENAI_API_KEY=your_openai_api_key_here")
+    print("GOOGLE_API_KEY=your_google_api_key_here")
     print()
     print("# Optional - Logging")
     print("LOG_LEVEL=INFO")
@@ -138,17 +138,17 @@ def main():
     # Final status
     # Prefer BOT_TOKEN but accept DISCORD_BOT_TOKEN for compatibility
     discord_token = os.getenv("BOT_TOKEN") or os.getenv("DISCORD_BOT_TOKEN")
-    openai_key = os.getenv("OPENAI_API_KEY")
+    google_key = os.getenv("GOOGLE_API_KEY")
 
     print("\n" + "=" * 40)
     if discord_token:
         print("🎉 Bot is ready to run!")
-        if openai_key:
+        if google_key:
             print("✨ AI features enabled")
         else:
-            print("⚪ AI features disabled (no OpenAI key)")
+            print("⚪ AI features disabled (no Google API key)")
     else:
-    print("⚠️  Set BOT_TOKEN (or legacy DISCORD_BOT_TOKEN) to run the bot")
+        print("⚠️  Set BOT_TOKEN (or legacy DISCORD_BOT_TOKEN) to run the bot")
 
 
 if __name__ == "__main__":

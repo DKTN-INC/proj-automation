@@ -3,8 +3,8 @@
 discord.py>=2.3.0
 python-dotenv>=1.0.0
 
-# AI and OpenAI integration
-openai>=1.0.0
+# AI and Google integration
+
 tiktoken>=0.5.0
 
 # File processing and OCR

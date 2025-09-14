@@ -6,7 +6,7 @@ This document describes the major enhancements made to the Discord bot for proje
 
 The bot has been enhanced with the following features:
 
-1. **Async OpenAI Client Wrapper** - For AI-powered responses
+1. **Async Google AI Client Wrapper** - For AI-powered responses
 2. **Message Chunking Utility** - Safe handling of long messages
 3. **Per-User Cooldowns** - Rate limiting for commands
 4. **Structured Logging** - Better observability and debugging
@@ -15,9 +15,9 @@ The bot has been enhanced with the following features:
 
 ## Features
 
-### 1. Async OpenAI Integration
+### 1. Async Google AI Integration
 
-**File**: `bot/openai_wrapper.py`
+**File**: `bot/google_api_wrapper.py`
 
 - Async HTTP client using aiohttp
 - Built-in rate limiting (1 second between requests)
@@ -26,7 +26,7 @@ The bot has been enhanced with the following features:
 
 **Usage**:
 ```python
-async with OpenAIWrapper(api_key) as client:
+async with GoogleAPIWrapper(api_key) as client:
     response = await client.answer_question("How do I deploy this?")
     summary = await client.summarize_text(long_text)
 ```
@@ -104,14 +104,14 @@ result = await heavy_computation(data)
 
 ### /ask Command
 - 30-second cooldown per user
-- AI-powered response suggestions (when OpenAI is configured)
+- AI-powered response suggestions (when Google AI is configured)
 - Automatic thread creation for discussions
 - Enhanced error handling and logging
 
 ### /summarize Command
 - 60-second cooldown per user
 - Thread pool processing for message analysis
-- AI-powered summaries (when OpenAI is configured)
+- AI-powered summaries (when Google AI is configured)
 - Detailed participation statistics
 - Activity insights (most active hours)
 - Message chunking for long summaries
@@ -124,7 +124,7 @@ result = await heavy_computation(data)
  - `BOT_TOKEN` - Discord bot token (preferred; `DISCORD_BOT_TOKEN` accepted for backward compatibility)
 
 **Optional**:
-- `OPENAI_API_KEY` - OpenAI API key for AI features
+- `GOOGLE_API_KEY` - Google API key for AI features
 - `LOG_LEVEL` - Logging level (DEBUG, INFO, WARNING, ERROR)
 - `STRUCTURED_LOGS` - Use JSON logging (true/false)
 - `LOG_FILE` - Path to log file
@@ -132,7 +132,7 @@ result = await heavy_computation(data)
 ### Dependencies
 
 New dependencies added to `requirements.txt`:
-- `openai>=1.50.0` - OpenAI client library
+- `google-generativeai>=0.1.0` - Google AI client library
 - `aiohttp>=3.8.0` - Already required by discord.py
 
 ## Setup and Usage
@@ -145,7 +145,7 @@ New dependencies added to `requirements.txt`:
 2. **Configure environment**:
    ```bash
    export DISCORD_BOT_TOKEN="your_bot_token"
-   export OPENAI_API_KEY="your_openai_key"  # Optional
+   export GOOGLE_API_KEY="your_google_key"  # Optional
    export LOG_LEVEL="INFO"
    ```
 
@@ -165,7 +165,7 @@ New dependencies added to `requirements.txt`:
 
 ```
 Discord Bot (main.py)
-├── OpenAI Wrapper (AI responses)
+├── Google API Wrapper (AI responses)
 ├── Message Chunker (Discord limits)
 ├── Cooldown Manager (Rate limiting)
 ├── Structured Logging (Observability)
@@ -187,7 +187,7 @@ Discord Bot (main.py)
 ## Error Handling
 
 - All components have comprehensive error handling
-- Graceful degradation when optional features (OpenAI) are unavailable
+- Graceful degradation when optional features (Google AI) are unavailable
 - Proper cleanup on shutdown
 - Detailed error logging with context
 

@@ -7,14 +7,14 @@ This implementation fully addresses all requirements from the problem statement:
 ### 1. **DM Markdown Intake** ✅
 - Bot accepts DM messages with markdown content
 - Auto-saves to `docs/ideasheets/` with timestamped filenames
-- AI-based automatic tagging using OpenAI or fallback keyword detection
+- AI-based automatic tagging using Google AI or fallback keyword detection
 - Generates HTML and PDF versions automatically
 
 ### 2. **Code Review Automation** ✅
 - Monitors channels for Python code blocks
 - Integrates flake8 for Python linting
 - Creates discussion threads for code review
-- AI-generated unit test stubs using OpenAI
+- AI-generated unit test stubs using Google AI
 
 ### 3. **Language Auto-detection & Syntax Highlighting** ✅
 - Detects programming languages in code snippets
@@ -29,7 +29,7 @@ This implementation fully addresses all requirements from the problem statement:
 
 ### 5. **Image OCR & Voice Transcription** ✅
 - Image text extraction using pytesseract with preprocessing
-- Voice message transcription using OpenAI Whisper
+- Voice message transcription (placeholder)
 - Automatic file type detection and processing
 
 ### 6. **Markdown to HTML/PDF Conversion** ✅
@@ -85,7 +85,7 @@ proj-automation/
 - aiofiles (async file operations)
 
 ### Optional Dependencies (graceful degradation)
-- OpenAI API (AI features, voice transcription)
+- Google AI API (AI features)
 - pytesseract + tesseract-ocr (OCR functionality)
 - pdfkit + wkhtmltopdf (PDF generation)
 - flake8 (Python code linting)
@@ -109,7 +109,7 @@ brew install wkhtmltopdf tesseract
 BOT_TOKEN=your_discord_bot_token
 
 # Optional (enables specific features)
-OPENAI_API_KEY=your_openai_api_key      # AI features
+GOOGLE_API_KEY=your_google_api_key      # AI features
 GITHUB_TOKEN=your_github_token          # GitHub integration
 DISCORD_WEBHOOK_URL=webhook_url         # Webhook notifications
 DISCORD_ADMIN_IDS=123,456,789          # Admin user IDs
@@ -146,8 +146,8 @@ DISCORD_ADMIN_IDS=123,456,789          # Admin user IDs
 | Slash Commands | ✅ | discord.py | ❌ |
 | Code Review | ✅ | flake8 | Manual analysis |
 | OCR Processing | ✅ | pytesseract | Error message |
-| Voice Transcription | ✅ | OpenAI | Error message |
-| AI Tagging | ✅ | OpenAI | Keyword extraction |
+| Voice Transcription | ⚠️ | Placeholder | Error message |
+| AI Tagging | ✅ | Google AI | Keyword extraction |
 | PDF Generation | ✅ | pdfkit | HTML only |
 | GitHub Integration | ✅ | PyGithub | Disabled commands |
 | Web Search | ✅ | aiohttp | Error message |
@@ -180,7 +180,7 @@ As specified in the problem statement:
 
 - **Complete Setup Guide**: `docs/bot-integration.md`
 - **Feature Documentation**: Comprehensive command reference
-- **API Integration**: OpenAI, GitHub, Discord webhook setup
+- **API Integration**: Google AI, GitHub, Discord webhook setup
 - **Troubleshooting**: Common issues and solutions
 - **Security**: File handling, API key management
 

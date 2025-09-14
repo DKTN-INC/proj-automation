@@ -5,7 +5,7 @@ Utility functions for Project Automation Discord Bot
 Includes:
 - MessageChunker: Safely splits long messages for Discord while preserving formatting
 - ConversationMemory: Persistent per-user conversation history (SQLite)
-- AIHelper: OpenAI-powered tagging, transcription, and unit test generation
+- AIHelper: Google-powered tagging, transcription, and unit test generation
 - FileProcessor: OCR, audio conversion, Markdown->HTML/PDF conversion, language detection
 - CodeAnalyzer: Python linting via flake8
 - GitHubHelper: Basic GitHub PR and issues utilities
@@ -43,13 +43,13 @@ try:
 except ImportError:
     OCR_AVAILABLE = False
 
-# AI / OpenAI
+# AI / Google
 try:
-    import openai
+    import google.generativeai as genai
 
-    OPENAI_AVAILABLE = True
+    GOOGLE_AI_AVAILABLE = True
 except ImportError:
-    OPENAI_AVAILABLE = False
+    GOOGLE_AI_AVAILABLE = False
 
 # Audio processing
 try:
@@ -378,15 +378,16 @@ class ConversationMemory:
 
 
 # -----------------------------------------------------------------------------
-# AI Helper (OpenAI)
+# AI Helper (Google)
 # -----------------------------------------------------------------------------
 class AIHelper:
     """Helper class for AI-powered features."""
 
     def __init__(self):
-        key = getattr(config, "openai_api_key", None)
-        if OPENAI_AVAILABLE and key:
-            openai.api_key = key
+        key = getattr(config, "google_api_key", None)
+        if GOOGLE_AI_AVAILABLE and key:
+            genai.configure(api_key=key)
+            self.model = genai.GenerativeModel(getattr(config, "ai_model", "gemini-1.5-flash"))
             self.available = True
         else:
             self.available = False
@@ -397,20 +398,10 @@ class AIHelper:
             return self._fallback_tags(content)
 
         try:
-            # Using legacy OpenAI SDK pattern for compatibility
-            response = await openai.ChatCompletion.acreate(
-                model=getattr(config, "ai_model", "gpt-3.5-turbo"),
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "Generate a comma-separated list of 3-5 relevant tags for technical content. Return only the list.",
-                    },
-                    {"role": "user", "content": f"Content:\n\n{content[:1500]}"},
-                ],
-                max_tokens=60,
-                temperature=0.3,
+            response = await self.model.generate_content_async(
+                f"Generate a comma-separated list of 3-5 relevant tags for the following technical content. Return only the list, without any introductory text.\n\nContent:\n\n{content[:1500]}"
             )
-            tags_text = response.choices[0].message.content.strip()
+            tags_text = response.text.strip()
             return [
                 tag.strip().lstrip("#") for tag in tags_text.split(",") if tag.strip()
             ]
@@ -450,42 +441,19 @@ class AIHelper:
         return unique[:5]
 
     async def transcribe_audio(self, audio_path: Path) -> str:
-        """Transcribe audio using OpenAI Whisper."""
-        if not self.available:
-            return "Audio transcription not available (OpenAI API key required)"
-
-        try:
-            # Use Path.open for better path handling
-            with audio_path.open("rb") as audio_file:
-                transcript = await openai.Audio.atranscribe(
-                    model=getattr(config, "whisper_model", "whisper-1"), file=audio_file
-                )
-                # Depending on SDK version, transcript may be object or dict
-                return getattr(transcript, "text", None) or transcript.get(
-                    "text", "Transcription completed"
-                )
-        except Exception as e:
-            return f"Transcription failed: {str(e)}"
+        """Transcribe audio using a placeholder, as Google AI doesn't directly support it in this context."""
+        return "Audio transcription not available with the current AI provider."
 
     async def generate_unit_tests(self, code: str, language: str = "python") -> str:
         """Generate unit test stubs for code."""
         if not self.available:
-            return "# Unit test generation not available (OpenAI API key required)"
+            return f"# Unit test generation not available (Google API key required)"
 
         try:
-            response = await openai.ChatCompletion.acreate(
-                model=getattr(config, "ai_model", "gpt-3.5-turbo"),
-                messages=[
-                    {
-                        "role": "system",
-                        "content": f"Generate comprehensive unit tests for {language} code. Use best practices and assertions.",
-                    },
-                    {"role": "user", "content": f"Code:\n\n{code}"},
-                ],
-                max_tokens=700,
-                temperature=0.2,
+            response = await self.model.generate_content_async(
+                f"Generate comprehensive unit tests for the following {language} code. Use best practices and assertions.\n\nCode:\n\n{code}"
             )
-            return response.choices[0].message.content
+            return response.text
         except Exception as e:
             return f"# Test generation failed: {str(e)}"
 

@@ -8,7 +8,7 @@ The Project Automation Discord Bot is a comprehensive AI-powered assistant that 
 
 ### 🤖 AI-Powered Features
 - **Automatic Tagging**: AI generates relevant tags for submitted content
-- **Voice Transcription**: Convert voice messages to text using OpenAI Whisper
+- **Voice Transcription**: Convert voice messages to text (placeholder)
 - **Unit Test Generation**: AI-generated unit test stubs for Python code
 - **Conversation Memory**: Persistent per-user conversation history using SQLite
 - **Content Analysis**: Intelligent content categorization and processing
@@ -99,7 +99,7 @@ pip install -r requirements.txt
   BOT_TOKEN=your_discord_bot_token_here
    
   # Optional but recommended
-  OPENAI_API_KEY=your_openai_api_key_here
+  GOOGLE_API_KEY=your_google_api_key_here
   GITHUB_TOKEN=your_github_personal_access_token_here
   DISCORD_WEBHOOK_URL=your_discord_webhook_url_here
    
@@ -109,10 +109,9 @@ pip install -r requirements.txt
 
 ### 4. Optional Services Setup
 
-#### OpenAI API (for AI features)
-1. Create account at [OpenAI](https://platform.openai.com/)
-2. Generate API key
-3. Add to `.env` file as `OPENAI_API_KEY`
+#### Google AI API (for AI features)
+1. Go to [Google AI Studio](https://aistudio.google.com/) and create an API key.
+2. Add to `.env` file as `GOOGLE_API_KEY`
 
 #### GitHub Integration
 1. Generate Personal Access Token with repo permissions
@@ -234,7 +233,7 @@ def authenticate_user(username, password):
 
 **Bot Response:**
 - Downloads and processes audio
-- Uses OpenAI Whisper for transcription
+- Uses a placeholder for transcription as the current AI provider does not support it.
 - Returns formatted text transcript
 - Optionally saves to conversation memory
 
@@ -274,7 +273,7 @@ output_dir = "output"
 
 Features automatically disable if required services are unavailable:
 
-- **AI Features:** Disabled if `OPENAI_API_KEY` not provided
+- **AI Features:** Disabled if `GOOGLE_API_KEY` not provided
 - **GitHub Integration:** Disabled if `GITHUB_TOKEN` not provided
 - **Webhook Features:** Disabled if `DISCORD_WEBHOOK_URL` not provided
 
@@ -316,8 +315,8 @@ SQLite database for conversation memory:
 4. Check logs for error messages
 
 #### AI Features Not Working
-1. Verify `OPENAI_API_KEY` is set correctly
-2. Check OpenAI API quota/billing
+1. Verify `GOOGLE_API_KEY` is set correctly
+2. Check Google AI API quota/billing
 3. Ensure network connectivity
 4. Review API model availability
 
@@ -409,11 +408,8 @@ async def custom_ai_feature(content: str) -> str:
     if not ai_helper.available:
         return "AI not available"
     
-    response = await openai.ChatCompletion.acreate(
-        model=config.ai_model,
-        messages=[{"role": "user", "content": content}]
-    )
-    return response.choices[0].message.content
+    response = await model.generate_content_async(content)
+    return response.text
 ```
 
 ## Support & Contributing

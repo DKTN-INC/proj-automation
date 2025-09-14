@@ -247,8 +247,8 @@ def log_async_operation(logger: logging.Logger, operation_name: str):
         operation_name: Name of the operation being logged
 
     Usage:
-        @log_async_operation(logger, "openai_api_call")
-        async def call_openai(...):
+        @log_async_operation(logger, "google_api_call")
+        async def call_google_ai(...):
             ...
     """
 

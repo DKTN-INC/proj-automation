@@ -41,9 +41,9 @@ Perfect for technical teams, open source communities, and anyone looking to auto
 - Smart message chunking: Safely splits long responses across multiple messages
 
 ### 🧠 AI & Advanced Features
-- OpenAI integration for question answering, text summarization, and content generation
+- Google AI integration for question answering, text summarization, and content generation
 - DM Markdown intake: Send markdown via DM, automatically saved to `docs/ideasheets/` with AI tags
-- Voice transcription: Convert voice messages to text (OpenAI Whisper)
+- Voice transcription: Convert voice messages to text (placeholder)
 - Image OCR: Extract text from images (pytesseract + preprocessing)
 - Code review: Python linting with flake8 and AI-generated unit test stubs
 - Conversation memory: Persistent per-user history (SQLite)
@@ -60,7 +60,7 @@ Perfect for technical teams, open source communities, and anyone looking to auto
 
 ### 🔗 External Integrations
 - GitHub API: Create PRs, fetch issues, and manage repositories
-- OpenAI: GPT models for analysis and generation
+- Google AI: Gemini models for analysis and generation
 - Web search: Built-in search utilities
 - Discord webhooks: Professional notifications with rich embeds
 
@@ -152,7 +152,7 @@ Note: if Chocolatey is used, it may require administrator privileges on the runn
    Example `.env` values:
    ```
    BOT_TOKEN=your_discord_bot_token
-   OPENAI_API_KEY=your_openai_api_key            # optional for AI features
+   GOOGLE_API_KEY=your_google_api_key            # optional for AI features
    GITHUB_TOKEN=your_github_token                # required for GitHub integration
    ADMIN_USER_IDS=123456789012345678,987654321098765432  # comma-separated Discord user IDs
    LOG_LEVEL=INFO

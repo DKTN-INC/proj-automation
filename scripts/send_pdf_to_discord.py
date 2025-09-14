@@ -132,7 +132,7 @@ class DiscordWebhookSender:
                             self.webhook_url, data=data, files=files, timeout=30
                         )
 
-                    if response.status_code == 204:
+                    if response.status_code in (200, 204):
                         logger.info(f"Successfully sent {pdf_file.name} to Discord")
                         return True
 

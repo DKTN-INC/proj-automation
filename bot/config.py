@@ -13,14 +13,13 @@ class BotConfig:
 
     def __init__(self):
         # Load environment variables
-    # Prefer BOT_TOKEN (Railway) but keep DISCORD_BOT_TOKEN for backward compatibility
-    self.discord_token = os.getenv("BOT_TOKEN") or os.getenv("DISCORD_BOT_TOKEN")
-    self.discord_webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
-    self.openai_api_key = os.getenv("OPENAI_API_KEY")
-    self.github_token = os.getenv("GITHUB_TOKEN")
-    self.google_api_key = os.getenv("GOOGLE_API_KEY")
-    self.google_cx = os.getenv("GOOGLE_CX")
-    self.guild_id = os.getenv("DISCORD_GUILD_ID")
+        # Prefer BOT_TOKEN (Railway) but keep DISCORD_BOT_TOKEN for backward compatibility
+        self.discord_token = os.getenv("BOT_TOKEN") or os.getenv("DISCORD_BOT_TOKEN")
+        self.discord_webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
+        self.github_token = os.getenv("GITHUB_TOKEN")
+        self.google_api_key = os.getenv("GOOGLE_API_KEY")
+        self.google_cx = os.getenv("GOOGLE_CX")
+        self.guild_id = os.getenv("DISCORD_GUILD_ID")
 
         # Admin user IDs (can be comma-separated)
         admin_ids = os.getenv("DISCORD_ADMIN_IDS", os.getenv("DISCORD_ADMIN_ID", ""))
@@ -43,7 +42,7 @@ class BotConfig:
         self.max_file_size = 25 * 1024 * 1024  # 25MB
 
         # AI settings
-        self.ai_model = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+        self.ai_model = os.getenv("GOOGLE_MODEL", "gemini-1.5-flash")
         self.whisper_model = os.getenv("WHISPER_MODEL", "whisper-1")
 
         # Team/Persona configuration
@@ -74,10 +73,10 @@ class BotConfig:
         else:
             messages.append("INFO: Discord token configured")
 
-        if not self.openai_api_key:
-            messages.append("WARNING: OPENAI_API_KEY not set - AI features disabled")
+        if not self.google_api_key:
+            messages.append("WARNING: GOOGLE_API_KEY not set - AI features disabled")
         else:
-            messages.append("INFO: OpenAI API key configured")
+            messages.append("INFO: Google API key configured")
 
         if not self.github_token:
             messages.append("WARNING: GITHUB_TOKEN not set - GitHub features disabled")

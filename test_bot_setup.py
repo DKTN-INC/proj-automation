@@ -69,10 +69,10 @@ def test_config():
         else:
             print("⚠️  Discord token not configured")
 
-        if hasattr(config, "openai_api_key") and config.openai_api_key:
-            print("✅ OpenAI API key configured")
+        if hasattr(config, "google_api_key") and config.google_api_key:
+            print("✅ Google API key configured")
         else:
-            print("⚠️  OpenAI API key not configured")
+            print("⚠️  Google API key not configured")
 
         if hasattr(config, "admin_user_ids"):
             print(f"✅ Admin users configured: {len(config.admin_user_ids)}")

@@ -159,7 +159,7 @@ class CircuitBreaker:
             ):
                 self._transition_to_closed()
 
-    async def _on_failure(self) -> None:
+    async def _on_failure(self, exception: Optional[Exception] = None) -> None:
         """Handle failed operation."""
         async with self._lock:
             self.stats.failure_count += 1
@@ -244,8 +244,8 @@ class CircuitBreakerManager:
         self._breakers: Dict[str, CircuitBreaker] = {}
 
     def get_breaker(
-        self, name: str, config: Optional[CircuitConfig] = None
-    ) -> CircuitBreaker:
+        self, name: str, config: Optional["CircuitConfig"] = None
+    ) -> "CircuitBreaker":
         """Get or create a circuit breaker."""
         if name not in self._breakers:
             self._breakers[name] = CircuitBreaker(name, config)
