@@ -367,7 +367,7 @@ The bot validates configuration on startup:
 
 ### System Requirements
 
-- **Python 3.8+** (recommended: 3.11)
+- **Python 3.10+** (recommended: 3.11)
 - **Git** for version control
 - **Text editor** with Python support
 

@@ -68,7 +68,9 @@ class BotConfig:
         is_valid = True
 
         if not self.discord_token:
-            messages.append("ERROR: BOT_TOKEN (or legacy DISCORD_BOT_TOKEN) is required")
+            messages.append(
+                "ERROR: BOT_TOKEN (or legacy DISCORD_BOT_TOKEN) is required"
+            )
             is_valid = False
         else:
             messages.append("INFO: Discord token configured")

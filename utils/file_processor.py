@@ -3,8 +3,10 @@
 This avoids importing `bot.utils` and provides a small, self-contained
 implementation used by the smoke-test harness and compatibility imports.
 """
-from pathlib import Path
+
 import re
+from pathlib import Path
+
 import markdown
 from jinja2 import Template
 
@@ -40,7 +42,13 @@ async def markdown_to_html(markdown_content: str, title: str = "Document") -> st
     rendered = template.render(title=title, content=html_content)
 
     try:
-        rendered = re.sub(r"<script[\s\S]*?>[\s\S]*?<\/script>", "", rendered, flags=re.IGNORECASE)
+        # Remove script tags robustly, allowing whitespace and attributes.
+        rendered = re.sub(
+            r"<script\b[^>]*>.*?</script\s*>",
+            "",
+            rendered,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
     except Exception:
         pass
 
@@ -66,7 +74,11 @@ def html_to_pdf(html_content: str, out_path: Path) -> bool:
         try:
             # Fallback: write text file explaining missing PDF backend
             p = out_path.with_suffix(".txt")
-            p.write_text("PDF generation not available - pdfkit or native libs missing\n\n" + html_content, encoding="utf-8")
+            p.write_text(
+                "PDF generation not available - pdfkit or native libs missing\n\n"
+                + html_content,
+                encoding="utf-8",
+            )
         except Exception:
             pass
         return False

@@ -1,4 +1,5 @@
-# Core markdown processing and templating dependencies
+# Core markdown processing and templating de# Async file operations
+aiofilesndencies
 markdown>=3.5.0
 Jinja2>=3.1.0
 weasyprint>=59.0
@@ -43,7 +44,7 @@ python-dateutil>=2.8.0
 opencv-python-headless>=4.8.0
 
 # Async file operations
-aiofiles>=23.0.0
+aiofiles
 
 # HTTP client for async operations
 aiohttp>=3.8.0        # Already required by discord.py

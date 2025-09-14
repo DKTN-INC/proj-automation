@@ -14,10 +14,11 @@ import asyncio
 import datetime
 import sys
 
-from typing import Any, List
-
 # Ensure repo root is on sys.path so `import bot` works when running this script
 from pathlib import Path
+from typing import Any
+
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
@@ -35,16 +36,20 @@ class FakeResponse:
         self._done = True
         print("[response.defer] Interaction deferred.")
 
-    async def send_message(self, content: str = None, ephemeral: bool = False, embed=None):
+    async def send_message(
+        self, content: str = None, ephemeral: bool = False, embed=None
+    ):
         if content:
             print(f"[response.send_message] ephemeral={ephemeral} content={content}")
         if embed:
-            print(f"[response.send_message] ephemeral={ephemeral} embed_title='{embed.title}'")
+            print(
+                f"[response.send_message] ephemeral={ephemeral} embed_title='{embed.title}'"
+            )
 
 
 class FakeFollowup:
     def __init__(self):
-        self.sent: List[Any] = []
+        self.sent: list[Any] = []
 
     async def send(self, content: str = None, ephemeral: bool = False):
         self.sent.append({"content": content, "ephemeral": ephemeral})
@@ -66,7 +71,7 @@ class FakeMessage:
 
 
 class FakeTextChannel:
-    def __init__(self, messages: List[FakeMessage], guild=None):
+    def __init__(self, messages: list[FakeMessage], guild=None):
         self._messages = messages
         self.guild = guild
         self.id = 9999
@@ -107,7 +112,7 @@ async def run_ask(question: str):
 
     interaction = FakeInteraction()
     interaction.command.name = "ask"
-    
+
     handler = main.ask_command
     if hasattr(handler, "callback"):
         handler = handler.callback
@@ -118,7 +123,7 @@ async def run_ask(question: str):
 
 async def run_summarize(hours: int):
     import bot.main as main
-    
+
     # The summarize command does not use the AI client, so no key mocking is needed.
     main.get_google_api_key = lambda: None
 
@@ -143,6 +148,7 @@ async def run_summarize(hours: int):
 
 async def run_idea_create(title: str):
     import bot.main as main
+
     interaction = FakeInteraction()
     # The idea commands are in a group, so we need to find the command differently
     handler = main.idea_group.get_command("create").callback
@@ -152,6 +158,7 @@ async def run_idea_create(title: str):
 
 async def run_idea_list():
     import bot.main as main
+
     interaction = FakeInteraction()
     handler = main.idea_group.get_command("list").callback
     print("--- Running /idea list ---")
@@ -160,6 +167,7 @@ async def run_idea_list():
 
 async def run_idea_view(title: str):
     import bot.main as main
+
     interaction = FakeInteraction()
     handler = main.idea_group.get_command("view").callback
     print(f"--- Running /idea view: '{title}' ---")
@@ -168,6 +176,7 @@ async def run_idea_view(title: str):
 
 async def run_todo_add(description: str):
     import bot.main as main
+
     interaction = FakeInteraction()
     handler = main.task_group.get_command("add").callback
     print(f"--- Running /todo add: '{description}' ---")
@@ -176,6 +185,7 @@ async def run_todo_add(description: str):
 
 async def run_todo_list():
     import bot.main as main
+
     interaction = FakeInteraction()
     handler = main.task_group.get_command("list").callback
     print("--- Running /todo list ---")
@@ -184,6 +194,7 @@ async def run_todo_list():
 
 async def run_todo_done(task_id: int):
     import bot.main as main
+
     interaction = FakeInteraction()
     handler = main.task_group.get_command("done").callback
     print(f"--- Running /todo done: {task_id} ---")
@@ -192,6 +203,7 @@ async def run_todo_done(task_id: int):
 
 async def run_todo_clear():
     import bot.main as main
+
     interaction = FakeInteraction()
     handler = main.task_group.get_command("clear").callback
     print("--- Running /todo clear ---")
@@ -207,33 +219,39 @@ def main():
     ask_parser.add_argument("question", help="Question text for /ask")
 
     # Summarize command
-    summarize_parser = subparsers.add_parser("summarize", help="Run the summarize command")
-    summarize_parser.add_argument("--hours", type=int, default=24, help="Hours for /summarize")
+    summarize_parser = subparsers.add_parser(
+        "summarize", help="Run the summarize command"
+    )
+    summarize_parser.add_argument(
+        "--hours", type=int, default=24, help="Hours for /summarize"
+    )
 
     # Idea command
     idea_parser = subparsers.add_parser("idea", help="Run idea sheet commands")
     idea_subparsers = idea_parser.add_subparsers(dest="idea_command", required=True)
-    
-    idea_create_parser = idea_subparsers.add_parser("create", help="Create an idea sheet")
+
+    idea_create_parser = idea_subparsers.add_parser(
+        "create", help="Create an idea sheet"
+    )
     idea_create_parser.add_argument("title", help="Title of the idea sheet")
-    
+
     idea_subparsers.add_parser("list", help="List idea sheets")
-    
+
     idea_view_parser = idea_subparsers.add_parser("view", help="View an idea sheet")
     idea_view_parser.add_argument("title", help="Title of the idea sheet to view")
 
     # Todo command
     todo_parser = subparsers.add_parser("todo", help="Run task tracking commands")
     todo_subparsers = todo_parser.add_subparsers(dest="todo_command", required=True)
-    
+
     todo_add_parser = todo_subparsers.add_parser("add", help="Add a task")
     todo_add_parser.add_argument("description", help="Description of the task")
-    
+
     todo_subparsers.add_parser("list", help="List tasks")
-    
+
     todo_done_parser = todo_subparsers.add_parser("done", help="Mark a task as done")
     todo_done_parser.add_argument("task_id", type=int, help="ID of the task")
-    
+
     todo_subparsers.add_parser("clear", help="Clear all tasks")
 
     args = parser.parse_args()

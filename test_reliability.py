@@ -9,7 +9,7 @@ import asyncio
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 
 # Add bot directory to path
@@ -17,8 +17,8 @@ sys.path.insert(0, str(Path(__file__).parent / "bot"))
 
 try:
     from circuit_breaker import CircuitBreaker, CircuitBreakerError, CircuitConfig
-    from health_monitor import HealthMonitor, get_system_health
     from google_api_wrapper import GoogleAPIWrapper
+    from health_monitor import HealthMonitor, get_system_health
     from reliability_config import get_reliability_config
     from resource_manager import (
         FileManager,
@@ -51,7 +51,7 @@ class ReliabilityTester:
 
     def __init__(self):
         """Initialize the reliability tester."""
-        self.results: Dict[str, Dict[str, Any]] = {}
+        self.results: dict[str, dict[str, Any]] = {}
 
     async def run_all_tests(self) -> bool:
         """Run all reliability tests."""

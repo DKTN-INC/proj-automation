@@ -7,14 +7,13 @@ Sends PDF files to Discord via webhook
 import argparse
 import json
 import logging
+import random
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
-import time
-import random
-from typing import Optional
 
 
 # Configure logging
@@ -42,9 +41,9 @@ class DiscordWebhookSender:
         self.external_upload_url = None
 
         # Optional S3 config (populated from CLI or environment if used)
-        self.s3_bucket: Optional[str] = None
-        self.s3_region: Optional[str] = None
-        self.s3_prefix: Optional[str] = None
+        self.s3_bucket: str | None = None
+        self.s3_region: str | None = None
+        self.s3_prefix: str | None = None
 
     def send_pdf(self, pdf_path, message=None, username="PDF Bot", avatar_url=None):
         """
@@ -297,7 +296,7 @@ class DiscordWebhookSender:
 
     def _upload_external_and_get_link(
         self, pdf_file: Path, upload_url: str
-    ) -> Optional[str]:
+    ) -> str | None:
         """Upload PDF to an external URL and return a public link.
 
         This is a minimal generic implementation that does a single POST of the
@@ -331,7 +330,7 @@ class DiscordWebhookSender:
             logger.warning(f"External upload error: {e}")
         return None
 
-    def _upload_to_s3_presigned(self, pdf_file: Path) -> Optional[str]:
+    def _upload_to_s3_presigned(self, pdf_file: Path) -> str | None:
         """Upload using S3 presigned POST/PUT. Requires boto3.
 
         This helper will attempt to use boto3 to create a presigned PUT URL and
@@ -388,9 +387,9 @@ class DiscordWebhookSender:
         self,
         pdf_file: Path,
         link: str,
-        message: Optional[str],
+        message: str | None,
         username: str,
-        avatar_url: Optional[str],
+        avatar_url: str | None,
     ) -> bool:
         """Send a webhook message linking to an externally-hosted PDF instead of attaching it."""
         payload = {

@@ -47,7 +47,7 @@ jobs:
 
   # Optional fail-fast job: checks WeasyPrint native runtime on ubuntu-latest
   weasyprint-check:
-    if: false
+    if: true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -71,7 +71,7 @@ jobs:
           python scripts/check_native_deps.py --fail-on-missing
 
   lint-and-format:
-    if: false
+    if: true
     name: Lint and Format
     runs-on: ubuntu-latest
 

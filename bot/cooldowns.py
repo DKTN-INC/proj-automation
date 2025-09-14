@@ -8,7 +8,6 @@ import asyncio
 import logging
 import time
 from collections import defaultdict
-from typing import Dict, Optional
 
 
 # Import discord for type hints
@@ -25,10 +24,10 @@ class CooldownManager:
     """Manages per-user cooldowns for Discord commands."""
 
     def __init__(self):
-        self._cooldowns: Dict[str, Dict[int, float]] = defaultdict(
+        self._cooldowns: dict[str, dict[int, float]] = defaultdict(
             dict
         )  # command -> user_id -> next_allowed_time
-        self._cleanup_task: Optional[asyncio.Task] = None
+        self._cleanup_task: asyncio.Task | None = None
 
     def _start_cleanup_task(self):
         """Start the background cleanup task."""
@@ -46,7 +45,7 @@ class CooldownManager:
                 await asyncio.sleep(300)  # Clean up every 5 minutes
                 current_time = time.time()
 
-                for command in self._cooldowns.keys():
+                for command in list(self._cooldowns.keys()):
                     expired_users = [
                         user_id
                         for user_id, next_time in self._cooldowns[command].items()
@@ -148,13 +147,13 @@ class CooldownManager:
         Args:
             user_id: Discord user ID
         """
-        for command in self._cooldowns:
+        for command in list(self._cooldowns.keys()):
             if user_id in self._cooldowns[command]:
                 del self._cooldowns[command][user_id]
 
         logger.debug(f"Reset all cooldowns for user {user_id}")
 
-    def get_user_cooldowns(self, user_id: int) -> Dict[str, float]:
+    def get_user_cooldowns(self, user_id: int) -> dict[str, float]:
         """
         Get all active cooldowns for a user.
 
@@ -175,7 +174,7 @@ class CooldownManager:
 
         return result
 
-    def get_cooldown_stats(self) -> Dict[str, int]:
+    def get_cooldown_stats(self) -> dict[str, int]:
         """
         Get statistics about active cooldowns.
 
@@ -223,12 +222,17 @@ class CooldownDecorator:
             # Acknowledge the interaction ASAP to avoid token expiry.
             # If the command or other decorators already deferred, this is a no-op.
             try:
-                if hasattr(interaction, "response") and not interaction.response.is_done():
+                if (
+                    hasattr(interaction, "response")
+                    and not interaction.response.is_done()
+                ):
                     # Defer without showing typing (ephemeral handled later by command)
                     await interaction.response.defer()
             except Exception:
                 # If deferring fails, continue — the command may still attempt to respond.
-                logger.debug("early defer in cooldown wrapper failed or interaction timed out")
+                logger.debug(
+                    "early defer in cooldown wrapper failed or interaction timed out"
+                )
 
             user_id = interaction.user.id
             command_name = interaction.command.name

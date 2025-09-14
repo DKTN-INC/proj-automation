@@ -215,7 +215,9 @@ def convert_md_to_pdf(md_file_path, output_dir=None, custom_options=None):
 
     try:
         # Convert HTML to PDF
-        pdfkit.from_string(html_content, str(pdf_path), options=options, configuration=config)
+        pdfkit.from_string(
+            html_content, str(pdf_path), options=options, configuration=config
+        )
         logger.info(f"Successfully converted {md_path.name} to {pdf_path}")
         return str(pdf_path)
 

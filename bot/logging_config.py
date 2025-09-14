@@ -10,7 +10,6 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 
 class StructuredFormatter(logging.Formatter):
@@ -92,7 +91,7 @@ class HumanReadableFormatter(logging.Formatter):
 def setup_logging(
     level: str = "INFO",
     structured: bool = False,
-    log_file: Optional[str] = None,
+    log_file: str | None = None,
     service_name: str = "proj-automation-bot",
 ) -> logging.Logger:
     """

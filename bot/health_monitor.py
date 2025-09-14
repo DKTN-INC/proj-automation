@@ -21,9 +21,10 @@ Provides h                     self._check_memory_usage()
 import asyncio
 import contextlib
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
 import psutil
 
@@ -38,7 +39,7 @@ class HealthMetric:
     name: str
     status: str  # "healthy", "warning", "critical"
     value: Any
-    threshold: Optional[float] = None
+    threshold: float | None = None
     message: str = ""
     last_check: datetime = field(default_factory=datetime.now)
 
@@ -48,7 +49,7 @@ class SystemHealth:
     """Aggregated system health status."""
 
     overall_status: str  # "healthy", "warning", "critical"
-    metrics: Dict[str, HealthMetric] = field(default_factory=dict)
+    metrics: dict[str, HealthMetric] = field(default_factory=dict)
     last_updated: datetime = field(default_factory=datetime.now)
 
 
@@ -58,11 +59,11 @@ class HealthMonitor:
     def __init__(self, check_interval: int = 60):
         """Initialize health monitor with check interval in seconds."""
         self.check_interval = check_interval
-        self.metrics: Dict[str, HealthMetric] = {}
-        self.custom_checks: Dict[str, Callable] = {}
-        self._monitoring_task: Optional[asyncio.Task] = None
+        self.metrics: dict[str, HealthMetric] = {}
+        self.custom_checks: dict[str, Callable] = {}
+        self._monitoring_task: asyncio.Task | None = None
         self._alerts_enabled = True
-        self._alert_cooldowns: Dict[str, datetime] = {}
+        self._alert_cooldowns: dict[str, datetime] = {}
 
     def register_custom_check(self, name: str, check_func: Callable) -> None:
         """Register a custom health check function."""
@@ -355,7 +356,7 @@ class HealthMonitor:
             f"Health Alert - {metric.name}: {metric.status} - {metric.message}"
         )
 
-    def get_health_report(self) -> Dict[str, Any]:
+    def get_health_report(self) -> dict[str, Any]:
         """Get a comprehensive health report."""
         overall_status = self._determine_overall_status()
 
@@ -388,7 +389,7 @@ class HealthMonitor:
 
         return report
 
-    async def health_check_endpoint(self) -> Dict[str, Any]:
+    async def health_check_endpoint(self) -> dict[str, Any]:
         """Simple health check endpoint for external monitoring."""
         try:
             await self.check_all_health()

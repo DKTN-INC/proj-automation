@@ -1,8 +1,11 @@
-import os
 import logging
+import os
+
 import google.generativeai as genai
 
+
 logger = logging.getLogger("google_api_wrapper")
+
 
 class GoogleAPIWrapper:
     def __init__(self):
@@ -15,7 +18,9 @@ class GoogleAPIWrapper:
         genai.configure(api_key=self.api_key)
         self.model = genai.GenerativeModel(model_name="gemini-1.5-flash")
 
-    def generate_text(self, content: str, model: str = "text-bison-001", max_output_tokens: int = 256):
+    def generate_text(
+        self, content: str, model: str = "text-bison-001", max_output_tokens: int = 256
+    ):
         """Generate text using the Google Generative AI API.
 
         Args:
@@ -35,14 +40,16 @@ class GoogleAPIWrapper:
             generation_config = {"max_output_tokens": max_output_tokens}
             response = self.model.generate_content(
                 contents=[content],
-                generation_config=generation_config  # Ensure proper formatting
+                generation_config=generation_config,  # Ensure proper formatting
             )
             return response.text
         except Exception as e:
             logger.error(f"Failed to generate text: {e}")
             raise
 
-    def summarize_text(self, text: str, model: str = "text-bison-001", max_output_tokens: int = 256):
+    def summarize_text(
+        self, text: str, model: str = "text-bison-001", max_output_tokens: int = 256
+    ):
         """Summarize text using the Google Generative AI API.
 
         Args:
@@ -61,7 +68,7 @@ class GoogleAPIWrapper:
         try:
             response = self.model.generate_content(
                 contents=[text],  # Updated argument name to 'contents'
-                max_output_tokens=max_output_tokens
+                max_output_tokens=max_output_tokens,
             )
             return response.text
         except Exception as e:
@@ -81,8 +88,7 @@ class GoogleAPIWrapper:
         try:
             generation_config = {"max_output_tokens": max_output_tokens}
             response = self.model.generate_content(
-                contents=[question],
-                generation_config=generation_config
+                contents=[question], generation_config=generation_config
             )
             return response.text
         except Exception as e:

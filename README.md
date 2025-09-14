@@ -87,16 +87,28 @@ Perfect for technical teams, open source communities, and anyone looking to auto
 
 ## Setup
 
+Note: The project used to include a `constraints.txt` file and an installer
+helper. Those files were intentionally removed. See `docs/CONSTRAINTS_REMOVAL.md`
+for the rationale and guidance for reproducible installs.
+
+
 ### 1. Clone and Install Dependencies
 
 ```sh
 git clone https://github.com/dktn7/proj-automation.git
 cd proj-automation
+# Create and activate a virtual environment, then install dependencies
+python -m venv .venv
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+# macOS / Linux
+source .venv/bin/activate
+
 pip install -r requirements.txt
 ```
 
 **System Requirements:**
-- Python 3.8+
+- Python 3.10+
 - wkhtmltopdf (for PDF generation)
 - tesseract-ocr (for OCR functionality)
 
@@ -122,8 +134,6 @@ From the repository root run:
 ```
 
 This script will attempt a user-level install via Scoop, fall back to Chocolatey, and finally download a portable static build and add it to the user PATH.
-
-CI integration: the GitHub Actions workflow includes a Windows runner step that runs this script before tests to ensure ffmpeg is present on Windows runners.
 
 Note: if Chocolatey is used, it may require administrator privileges on the runner or machine. The installer script falls back to a portable download when admin rights are not available.
 ```

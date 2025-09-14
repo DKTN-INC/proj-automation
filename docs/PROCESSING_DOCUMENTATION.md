@@ -201,7 +201,7 @@ All errors include:
 ## Dependencies
 
 ### System Requirements
-- Python 3.8+
+- Python 3.10+
 - Modern Linux distribution
 - System fonts for PDF generation
 

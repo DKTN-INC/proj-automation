@@ -9,13 +9,13 @@ and AI summarization features for markdown files.
 import argparse
 import asyncio
 import datetime
-from datetime import timezone
 import os
 import re
 import sys
-from typing import Dict, Optional
+from datetime import timezone
 
 import markdown
+
 
 try:
     import weasyprint
@@ -60,7 +60,7 @@ TEMPLATES_DIR_NAME = "templates"
 class MarkdownProcessor:
     """Main class for processing markdown files with enhanced features."""
 
-    def __init__(self, template_dir: Optional[str] = None):
+    def __init__(self, template_dir: str | None = None):
         """Initialize the processor with optional template directory."""
         self.template_dir = template_dir or os.path.join(
             os.path.dirname(__file__), TEMPLATES_DIR_NAME
@@ -204,8 +204,8 @@ class MarkdownProcessor:
         return len(words)
 
     def process_markdown_to_html(
-        self, markdown_content: str, file_path: Optional[str] = None
-    ) -> Dict:
+        self, markdown_content: str, file_path: str | None = None
+    ) -> dict:
         """Process markdown content to HTML with TOC and summary."""
         try:
             # Setup markdown processor with extensions
@@ -286,7 +286,10 @@ class MarkdownProcessor:
                 pdfkit.from_string(html_content, output_path)
                 return True
             except Exception as e:
-                print(f"Fallback wkhtmltopdf/pdfkit conversion failed: {e}", file=sys.stderr)
+                print(
+                    f"Fallback wkhtmltopdf/pdfkit conversion failed: {e}",
+                    file=sys.stderr,
+                )
                 return False
         except Exception as e:
             print(f"Unexpected error during PDF conversion: {e}", file=sys.stderr)
@@ -297,7 +300,7 @@ class MarkdownProcessor:
         input_path: str,
         output_dir: str,
         template_name: str = DEFAULT_TEMPLATE_NAME,
-    ) -> Dict:
+    ) -> dict:
         """Process a single markdown file."""
         try:
             # Validate input file
@@ -364,7 +367,7 @@ class MarkdownProcessor:
         output_dir: str,
         template_name: str = DEFAULT_TEMPLATE_NAME,
         send_to_discord: bool = True,
-    ) -> Dict:
+    ) -> dict:
         """
         Process a single markdown file and optionally send PDF to Discord.
 

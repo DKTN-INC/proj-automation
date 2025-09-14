@@ -2,7 +2,6 @@ import sys
 import types
 from pathlib import Path
 
-
 from scripts.send_pdf_to_discord import DiscordWebhookSender
 
 

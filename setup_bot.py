@@ -24,7 +24,7 @@ def main():
     print("\n📋 Environment Configuration:")
 
     required_vars = {
-    "BOT_TOKEN": "Discord bot token (preferred for Railway; will accept DISCORD_BOT_TOKEN)",
+        "BOT_TOKEN": "Discord bot token (preferred for Railway; will accept DISCORD_BOT_TOKEN)",
     }
 
     optional_vars = {

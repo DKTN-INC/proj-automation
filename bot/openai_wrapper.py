@@ -9,7 +9,7 @@ import asyncio
 import json
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import aiohttp
 
@@ -45,7 +45,7 @@ class OpenAIWrapper:
         timeout: float = 30.0,
         rate_limit_requests_per_minute: int = 60,
         enable_circuit_breaker: bool = True,
-        extra_headers: Optional[Dict[str, str]] = None,
+        extra_headers: dict[str, str] | None = None,
     ):
         """Initialize OpenAI wrapper with enhanced reliability features."""
         self.api_key = api_key
@@ -57,7 +57,7 @@ class OpenAIWrapper:
         self.extra_headers = extra_headers or {}
 
         # Legacy compatibility
-        self.session: Optional[aiohttp.ClientSession] = None
+        self.session: aiohttp.ClientSession | None = None
         self._last_request_time = 0
         self._min_request_interval = (
             60.0 / rate_limit_requests_per_minute
@@ -149,8 +149,8 @@ class OpenAIWrapper:
         self._request_count += 1
 
     async def _make_request_internal(
-        self, endpoint: str, data: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
+        self, endpoint: str, data: dict[str, Any]
+    ) -> dict[str, Any] | None:
         """Internal method to make HTTP request."""
         await self._ensure_session()
         await self._rate_limit()
@@ -183,8 +183,8 @@ class OpenAIWrapper:
                 )
 
     async def _make_request(
-        self, endpoint: str, data: Dict[str, Any], retries: int = 3
-    ) -> Optional[Dict[str, Any]]:
+        self, endpoint: str, data: dict[str, Any], retries: int = 3
+    ) -> dict[str, Any] | None:
         """Make an async HTTP request to OpenAI API with circuit breaker and retries."""
         if self._circuit_breaker:
             try:
@@ -218,11 +218,11 @@ class OpenAIWrapper:
 
     async def chat_completion(
         self,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         model: str = "gpt-3.5-turbo",
         max_tokens: int = 500,
         temperature: float = 0.7,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Generate a chat completion using OpenAI API.
 
@@ -249,7 +249,7 @@ class OpenAIWrapper:
 
         return None
 
-    async def summarize_text(self, text: str, max_length: int = 200) -> Optional[str]:
+    async def summarize_text(self, text: str, max_length: int = 200) -> str | None:
         """
         Summarize the given text using OpenAI.
 
@@ -276,7 +276,7 @@ class OpenAIWrapper:
 
         return await self.chat_completion(messages, max_tokens=max_length // 3)
 
-    async def answer_question(self, question: str, context: str = "") -> Optional[str]:
+    async def answer_question(self, question: str, context: str = "") -> str | None:
         """
         Answer a question using OpenAI, optionally with context.
 
@@ -306,7 +306,7 @@ class OpenAIWrapper:
 
         return await self.chat_completion(messages, max_tokens=400)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get OpenAI wrapper statistics."""
         return {
             "total_requests": self._stats["total_requests"],
@@ -324,7 +324,7 @@ class OpenAIWrapper:
             "max_retries": self.max_retries,
         }
 
-    def get_health_status(self) -> Dict[str, Any]:
+    def get_health_status(self) -> dict[str, Any]:
         """Get health status of OpenAI wrapper."""
         stats = self.get_stats()
 

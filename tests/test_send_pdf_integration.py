@@ -1,5 +1,3 @@
-
-
 from scripts.send_pdf_to_discord import DiscordWebhookSender
 
 
@@ -51,18 +49,24 @@ def test_send_pdf_413_then_external_fallback(monkeypatch, tmp_path):
     pdf_path = make_pdf_file(tmp_path)
     external_uploaded = {"called": False}
 
+    from urllib.parse import urlparse
+
     def fake_post(url, data=None, files=None, json=None, timeout=None):
+        # Parse the URL to avoid unsafe substring checks
+        netloc = urlparse(url).netloc.lower()
         # If posting attachment to webhook -> simulate 413
-        if files is not None and url.startswith("https://discord.test"):
+        if files is not None and netloc == "discord.test":
             return DummyResponse(status_code=413, text="Payload Too Large")
         # If posting link message (json payload) -> success
-        if json is not None and url.startswith("https://discord.test"):
+        if json is not None and netloc == "discord.test":
             return DummyResponse(status_code=204)
         # External upload endpoint
-        if url.startswith("https://upload.test"):
+        if netloc == "upload.test":
             # Simulate external upload returning JSON with url
             external_uploaded["called"] = True
-            return DummyResponse(status_code=200, json_data={"url": "https://cdn.test/test.pdf"})
+            return DummyResponse(
+                status_code=200, json_data={"url": "https://cdn.test/test.pdf"}
+            )
         return DummyResponse(status_code=500)
 
     sender = DiscordWebhookSender("https://discord.test/webhook")

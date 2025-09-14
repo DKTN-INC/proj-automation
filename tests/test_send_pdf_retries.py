@@ -1,5 +1,5 @@
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from scripts.send_pdf_to_discord import DiscordWebhookSender
 
@@ -37,9 +37,11 @@ def test_send_pdf_retries_backoff(tmp_path):
     post_side_effect.count = 0
 
     # Patch sleep and random.uniform to avoid delays and jitter
-    with patch("time.sleep", return_value=None) as mock_sleep, patch(
-        "random.uniform", return_value=0
-    ), patch.object(sender.session, "post", side_effect=post_side_effect) as mock_post:
+    with (
+        patch("time.sleep", return_value=None) as mock_sleep,
+        patch("random.uniform", return_value=0),
+        patch.object(sender.session, "post", side_effect=post_side_effect) as mock_post,
+    ):
         success = sender.send_pdf(pdf_path)
 
     assert success is True

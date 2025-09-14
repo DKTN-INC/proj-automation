@@ -79,7 +79,7 @@ proj-automation/
 ## 🛠 System Requirements
 
 ### Required Dependencies
-- Python 3.8+
+- Python 3.10+
 - discord.py 2.3.0+
 - aiosqlite (conversation memory)
 - aiofiles (async file operations)

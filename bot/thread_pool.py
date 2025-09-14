@@ -7,10 +7,11 @@ Manages thread pools for offloading CPU-intensive tasks from the main asyncio ev
 import asyncio
 import logging
 import time
+from collections.abc import Callable, Coroutine
 from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
 from threading import Lock
-from typing import Any, Callable, Coroutine, Optional, TypeVar
+from typing import Any, TypeVar
 
 
 logger = logging.getLogger(__name__)
@@ -22,7 +23,7 @@ class ThreadPoolManager:
 
     def __init__(self, max_workers: int = 4):
         self.max_workers = max_workers
-        self._executor: Optional[ThreadPoolExecutor] = None
+        self._executor: ThreadPoolExecutor | None = None
         self._lock = Lock()
         self._active_tasks = 0
 
