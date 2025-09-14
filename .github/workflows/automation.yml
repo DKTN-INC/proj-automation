@@ -62,39 +62,39 @@ jobs:
           python -m pip install --upgrade pip
           # markdown_processor.py uses: markdown, jinja2, pygments (for codehilite), and weasyprint
           pip install "weasyprint>=60,<63" "Markdown>=3.4" "Jinja2>=3.1" "Pygments>=2.16" requests
-      # Verify imports with helpful error if something is missing
-      python - <<'PY'
-      import sys
-      import os
+          # Verify imports with helpful error if something is missing
+          python - <<'PY'
+          import sys
+          import os
 
-      missing = []
-      try:
-        import weasyprint  # noqa
-      except Exception as e:
-        missing.append(f"weasyprint ({e})")
-      try:
-        import markdown  # noqa
-      except Exception as e:
-        missing.append(f"markdown ({e})")
-      try:
-        import jinja2  # noqa
-      except Exception as e:
-        missing.append(f"jinja2 ({e})")
-      try:
-        import pygments  # noqa
-      except Exception as e:
-        missing.append(f"pygments ({e})")
+          missing = []
+          try:
+            import weasyprint  # noqa
+          except Exception as e:
+            missing.append(f"weasyprint ({e})")
+          try:
+            import markdown  # noqa
+          except Exception as e:
+            missing.append(f"markdown ({e})")
+          try:
+            import jinja2  # noqa
+          except Exception as e:
+            missing.append(f"jinja2 ({e})")
+          try:
+            import pygments  # noqa
+          except Exception as e:
+            missing.append(f"pygments ({e})")
 
-      if missing:
-        # Fail only if the workflow is configured to be strict about Weasy
-        print("⚠️ Missing or failed imports:", ", ".join(missing), file=sys.stderr)
-        print("ℹ️ Some optional dependencies are missing; markdown->PDF may be limited.", file=sys.stderr)
-        if ("weasyprint" in ", ".join(missing)) and (os.environ.get('FAIL_ON_MISSING_WEASY', 'false').lower() == 'true'):
-          print("❌ Missing WeasyPrint and FAIL_ON_MISSING_WEASY is true; exiting.", file=sys.stderr)
-          sys.exit(1)
-      else:
-        print("✅ Verified Python dependencies (weasyprint, markdown, jinja2, pygments)")
-      PY
+          if missing:
+            # Fail only if the workflow is configured to be strict about Weasy
+            print("⚠️ Missing or failed imports:", ", ".join(missing), file=sys.stderr)
+            print("ℹ️ Some optional dependencies are missing; markdown->PDF may be limited.", file=sys.stderr)
+            if ("weasyprint" in ", ".join(missing)) and (os.environ.get('FAIL_ON_MISSING_WEASY', 'false').lower() == 'true'):
+              print("❌ Missing WeasyPrint and FAIL_ON_MISSING_WEASY is true; exiting.", file=sys.stderr)
+              sys.exit(1)
+          else:
+            print("✅ Verified Python dependencies (weasyprint, markdown, jinja2, pygments)")
+          PY
 
       - name: Verify required scripts exist
         run: |
