@@ -41,9 +41,9 @@ Perfect for technical teams, open source communities, and anyone looking to auto
 - Smart message chunking: Safely splits long responses across multiple messages
 
 ### 🧠 AI & Advanced Features
-- OpenAI integration for question answering, text summarization, and content generation
+- Google AI integration for question answering, text summarization, and content generation
 - DM Markdown intake: Send markdown via DM, automatically saved to `docs/ideasheets/` with AI tags
-- Voice transcription: Convert voice messages to text (OpenAI Whisper)
+- Voice transcription: Convert voice messages to text (placeholder)
 - Image OCR: Extract text from images (pytesseract + preprocessing)
 - Code review: Python linting with flake8 and AI-generated unit test stubs
 - Conversation memory: Persistent per-user history (SQLite)
@@ -60,7 +60,7 @@ Perfect for technical teams, open source communities, and anyone looking to auto
 
 ### 🔗 External Integrations
 - GitHub API: Create PRs, fetch issues, and manage repositories
-- OpenAI: GPT models for analysis and generation
+- Google AI: Gemini models for analysis and generation
 - Web search: Built-in search utilities
 - Discord webhooks: Professional notifications with rich embeds
 
@@ -87,16 +87,28 @@ Perfect for technical teams, open source communities, and anyone looking to auto
 
 ## Setup
 
+Note: The project used to include a `constraints.txt` file and an installer
+helper. Those files were intentionally removed. See `docs/CONSTRAINTS_REMOVAL.md`
+for the rationale and guidance for reproducible installs.
+
+
 ### 1. Clone and Install Dependencies
 
 ```sh
 git clone https://github.com/dktn7/proj-automation.git
 cd proj-automation
+# Create and activate a virtual environment, then install dependencies
+python -m venv .venv
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+# macOS / Linux
+source .venv/bin/activate
+
 pip install -r requirements.txt
 ```
 
 **System Requirements:**
-- Python 3.8+
+- Python 3.10+
 - wkhtmltopdf (for PDF generation)
 - tesseract-ocr (for OCR functionality)
 
@@ -122,8 +134,6 @@ From the repository root run:
 ```
 
 This script will attempt a user-level install via Scoop, fall back to Chocolatey, and finally download a portable static build and add it to the user PATH.
-
-CI integration: the GitHub Actions workflow includes a Windows runner step that runs this script before tests to ensure ffmpeg is present on Windows runners.
 
 Note: if Chocolatey is used, it may require administrator privileges on the runner or machine. The installer script falls back to a portable download when admin rights are not available.
 ```
@@ -151,8 +161,8 @@ Note: if Chocolatey is used, it may require administrator privileges on the runn
 
    Example `.env` values:
    ```
-   DISCORD_BOT_TOKEN=your_discord_bot_token
-   OPENAI_API_KEY=your_openai_api_key            # optional for AI features
+   BOT_TOKEN=your_discord_bot_token
+   GOOGLE_API_KEY=your_google_api_key            # optional for AI features
    GITHUB_TOKEN=your_github_token                # required for GitHub integration
    ADMIN_USER_IDS=123456789012345678,987654321098765432  # comma-separated Discord user IDs
    LOG_LEVEL=INFO
@@ -198,6 +208,34 @@ Note: if Chocolatey is used, it may require administrator privileges on the runn
 
 3. Test Complete Workflow:
    - Create a new Markdown file in `docs/ideasheets/`
+
+## WeasyPrint native dependencies
+
+WeasyPrint requires native libraries (GTK/Cairo/Pango and libffi) for PDF rendering. If PDF conversion fails with an OSError or import error mentioning cairo/pango, install the native libs for your platform:
+
+- Windows (PowerShell as Administrator):
+```powershell
+choco install gtk-runtime cairo pango libffi -y
+# Or use the GTK-for-Windows runtime installer: https://github.com/tschoonj/GTK-for-Windows-Runtime-Installer
+```
+
+- Ubuntu / Debian:
+```bash
+sudo apt-get update
+sudo apt-get install -y libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0 libffi-dev shared-mime-info
+```
+
+- macOS (Homebrew):
+```bash
+brew install cairo pango gdk-pixbuf libffi
+```
+
+After installing native libraries, reinstall or upgrade the Python package in your virtualenv:
+```bash
+pip install --upgrade weasyprint
+```
+
+If you cannot install native libs on your CI runner, consider disabling the Weasy fail-fast check (see CI workflow inputs) or use the `wkhtmltopdf` fallback which the project supports.
    - Commit and push to GitHub
    - Watch GitHub Actions run the automation workflow
    - Check Discord for the generated PDF

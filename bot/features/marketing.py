@@ -5,8 +5,7 @@ Provides functionality to generate campaign briefs and render them as Markdown.
 """
 
 from dataclasses import dataclass
-from datetime import datetime
-from typing import List, Optional
+from datetime import datetime, timezone
 
 
 @dataclass
@@ -15,24 +14,24 @@ class CampaignBrief:
 
     campaign_name: str
     target_audience: str
-    objectives: List[str]
-    budget: Optional[float] = None
-    timeline: Optional[str] = None
-    channels: Optional[List[str]] = None
-    key_messages: Optional[List[str]] = None
-    success_metrics: Optional[List[str]] = None
-    created_at: Optional[datetime] = None
+    objectives: list[str]
+    budget: float | None = None
+    timeline: str | None = None
+    channels: list[str] | None = None
+    key_messages: list[str] | None = None
+    success_metrics: list[str] | None = None
+    created_at: datetime | None = None
 
 
 def generate_campaign_brief(
     campaign_name: str,
     target_audience: str,
-    objectives: List[str],
-    budget: Optional[float] = None,
-    timeline: Optional[str] = None,
-    channels: Optional[List[str]] = None,
-    key_messages: Optional[List[str]] = None,
-    success_metrics: Optional[List[str]] = None,
+    objectives: list[str],
+    budget: float | None = None,
+    timeline: str | None = None,
+    channels: list[str] | None = None,
+    key_messages: list[str] | None = None,
+    success_metrics: list[str] | None = None,
 ) -> CampaignBrief:
     """
     Generate a campaign brief with the provided information.
@@ -59,7 +58,7 @@ def generate_campaign_brief(
         channels=channels or [],
         key_messages=key_messages or [],
         success_metrics=success_metrics or [],
-        created_at=datetime.now(),
+        created_at=datetime.now(timezone.utc),
     )
 
 

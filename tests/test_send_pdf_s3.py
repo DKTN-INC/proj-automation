@@ -1,8 +1,6 @@
-import io
-from pathlib import Path
 import types
-import pytest
-from unittest.mock import patch, MagicMock
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from scripts.send_pdf_to_discord import DiscordWebhookSender
 
@@ -38,7 +36,9 @@ def test_s3_presigned_upload_and_webhook_put(tmp_path):
 
     with patch("importlib.import_module", return_value=fake_boto3):
         # Exercise the presigned upload helper directly
-        with patch.object(sender.session, "put", return_value=fake_response) as mock_put:
+        with patch.object(
+            sender.session, "put", return_value=fake_response
+        ) as mock_put:
             url = sender._upload_to_s3_presigned(Path(pdf_path))
 
     # The helper uploads via PUT and then returns a constructed public S3 URL
@@ -51,6 +51,7 @@ def test_s3_presigned_upload_and_webhook_put(tmp_path):
     fake_webhook_response = MagicMock()
     fake_webhook_response.status_code = 204
     with patch.object(sender.session, "post", return_value=fake_webhook_response):
-        sent = sender._send_webhook_with_link(Path(pdf_path), url, None, "PDF Bot", None)
+        sent = sender._send_webhook_with_link(
+            Path(pdf_path), url, None, "PDF Bot", None
+        )
     assert sent is True
-

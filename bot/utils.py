@@ -5,7 +5,7 @@ Utility functions for Project Automation Discord Bot
 Includes:
 - MessageChunker: Safely splits long messages for Discord while preserving formatting
 - ConversationMemory: Persistent per-user conversation history (SQLite)
-- AIHelper: OpenAI-powered tagging, transcription, and unit test generation
+- AIHelper: Google-powered tagging, transcription, and unit test generation
 - FileProcessor: OCR, audio conversion, Markdown->HTML/PDF conversion, language detection
 - CodeAnalyzer: Python linting via flake8
 - GitHubHelper: Basic GitHub PR and issues utilities
@@ -14,16 +14,21 @@ Includes:
 All components are designed to degrade gracefully when optional dependencies are missing.
 """
 
+import asyncio as _asyncio
 import hashlib
 import json
+import logging
 import re
-import tempfile
-import os
-import asyncio as _asyncio
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
+import aiofiles
 import aiosqlite
+import markdown
+from jinja2 import Template
+
+
+logger = logging.getLogger(__name__)
 
 
 # Optional dependencies and availability flags
@@ -38,18 +43,18 @@ try:
 except ImportError:
     OCR_AVAILABLE = False
 
-# AI / OpenAI
+# AI / Google
 try:
-    import openai
+    import google.generativeai as genai
 
-    OPENAI_AVAILABLE = True
+    GOOGLE_AI_AVAILABLE = True
 except ImportError:
-    OPENAI_AVAILABLE = False
+    GOOGLE_AI_AVAILABLE = False
 
 # Audio processing
 try:
-    import warnings
     import shutil
+    import warnings
 
     # Import pydub while temporarily suppressing RuntimeWarnings that occur
     # when ffmpeg/avconv are not present on the system. After import, try
@@ -61,11 +66,10 @@ try:
     # If ffmpeg is available on PATH, point pydub to it explicitly.
     ffmpeg_path = shutil.which("ffmpeg") or shutil.which("ffmpeg.exe")
     if ffmpeg_path:
-        try:
+        from contextlib import suppress
+
+        with suppress(Exception):
             AudioSegment.converter = ffmpeg_path
-        except Exception:
-            # If assignment fails, don't crash import; pydub will fallback.
-            pass
 
     AUDIO_AVAILABLE = True
 except ImportError:
@@ -89,11 +93,6 @@ except ImportError:
     WEB_AVAILABLE = False
 
 # Markdown / PDF
-import contextlib
-
-import markdown
-from jinja2 import Template
-
 
 try:
     import pdfkit
@@ -125,7 +124,7 @@ class MessageChunker:
 
     def chunk_text(
         self, text: str, preserve_words: bool = True, preserve_lines: bool = True
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Split text into chunks that fit Discord's limits.
 
@@ -140,7 +139,7 @@ class MessageChunker:
         if len(text) <= self.max_length:
             return [text]
 
-        chunks: List[str] = []
+        chunks: list[str] = []
         remaining = text
 
         while remaining:
@@ -184,17 +183,17 @@ class MessageChunker:
         # Fallback to hard split
         return max_pos
 
-    def chunk_for_embed_description(self, text: str) -> List[str]:
+    def chunk_for_embed_description(self, text: str) -> list[str]:
         """Split text for Discord embed descriptions."""
         chunker = MessageChunker(self.MAX_EMBED_DESCRIPTION_LENGTH)
         return chunker.chunk_text(text)
 
-    def chunk_for_embed_field(self, text: str) -> List[str]:
+    def chunk_for_embed_field(self, text: str) -> list[str]:
         """Split text for Discord embed field values."""
         chunker = MessageChunker(self.MAX_EMBED_FIELD_VALUE_LENGTH)
         return chunker.chunk_text(text)
 
-    def chunk_markdown_safely(self, text: str) -> List[str]:
+    def chunk_markdown_safely(self, text: str) -> list[str]:
         """
         Split markdown text while trying to preserve formatting.
 
@@ -206,7 +205,7 @@ class MessageChunker:
         """
         sections = self._split_by_markdown_sections(text)
 
-        chunks: List[str] = []
+        chunks: list[str] = []
         current_chunk = ""
 
         for section in sections:
@@ -230,7 +229,7 @@ class MessageChunker:
 
         return [chunk for chunk in chunks if chunk.strip()]
 
-    def _split_by_markdown_sections(self, text: str) -> List[str]:
+    def _split_by_markdown_sections(self, text: str) -> list[str]:
         """Split text by markdown sections (headers, code blocks, etc.)."""
         patterns = [
             r"^```[\s\S]*?^```",  # Code blocks
@@ -246,7 +245,7 @@ class MessageChunker:
         if not matches:
             return text.split("\n\n")
 
-        sections: List[str] = []
+        sections: list[str] = []
         last_end = 0
 
         for match in matches:
@@ -266,8 +265,8 @@ class MessageChunker:
 
     @staticmethod
     def add_chunk_indicators(
-        chunks: List[str], total_pages: Optional[int] = None
-    ) -> List[str]:
+        chunks: list[str], total_pages: int | None = None
+    ) -> list[str]:
         """
         Add page indicators to chunks.
 
@@ -282,7 +281,7 @@ class MessageChunker:
             return chunks
 
         total = total_pages or len(chunks)
-        result: List[str] = []
+        result: list[str] = []
 
         for i, chunk in enumerate(chunks, 1):
             indicator = f"📄 Page {i}/{total}\n\n"
@@ -342,7 +341,7 @@ class ConversationMemory:
             await db.commit()
 
     async def store_conversation(
-        self, user_id: int, message: str, response: str, context: Optional[Dict] = None
+        self, user_id: int, message: str, response: str, context: dict | None = None
     ):
         """Store a conversation in the database."""
         context_hash = None
@@ -363,7 +362,7 @@ class ConversationMemory:
 
     async def get_conversation_history(
         self, user_id: int, limit: int = 10
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get conversation history for a user."""
         async with aiosqlite.connect(self.db_path) as db:
             cursor = await db.execute(
@@ -378,46 +377,39 @@ class ConversationMemory:
 
 
 # -----------------------------------------------------------------------------
-# AI Helper (OpenAI)
+# AI Helper (Google)
 # -----------------------------------------------------------------------------
 class AIHelper:
     """Helper class for AI-powered features."""
 
     def __init__(self):
-        key = getattr(config, "openai_api_key", None)
-        if OPENAI_AVAILABLE and key:
-            openai.api_key = key
+        key = getattr(config, "google_api_key", None)
+        if GOOGLE_AI_AVAILABLE and key:
+            genai.configure(api_key=key)
+            self.model = genai.GenerativeModel(
+                getattr(config, "ai_model", "gemini-1.5-flash")
+            )
             self.available = True
         else:
             self.available = False
 
-    async def generate_tags(self, content: str) -> List[str]:
+    async def generate_tags(self, content: str) -> list[str]:
         """Generate tags for markdown content using AI."""
         if not self.available:
             return self._fallback_tags(content)
 
         try:
-            # Using legacy OpenAI SDK pattern for compatibility
-            response = await openai.ChatCompletion.acreate(
-                model=getattr(config, "ai_model", "gpt-3.5-turbo"),
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "Generate a comma-separated list of 3-5 relevant tags for technical content. Return only the list.",
-                    },
-                    {"role": "user", "content": f"Content:\n\n{content[:1500]}"},
-                ],
-                max_tokens=60,
-                temperature=0.3,
+            response = await self.model.generate_content_async(
+                f"Generate a comma-separated list of 3-5 relevant tags for the following technical content. Return only the list, without any introductory text.\n\nContent:\n\n{content[:1500]}"
             )
-            tags_text = response.choices[0].message.content.strip()
+            tags_text = response.text.strip()
             return [
                 tag.strip().lstrip("#") for tag in tags_text.split(",") if tag.strip()
             ]
         except Exception:
             return self._fallback_tags(content)
 
-    def _fallback_tags(self, content: str) -> List[str]:
+    def _fallback_tags(self, content: str) -> list[str]:
         """Fallback tag generation without AI."""
         keywords = [
             "python",
@@ -430,7 +422,7 @@ class AIHelper:
             "ml",
             "data",
         ]
-        found_tags: List[str] = []
+        found_tags: list[str] = []
         content_lower = content.lower()
 
         for keyword in keywords:
@@ -450,42 +442,19 @@ class AIHelper:
         return unique[:5]
 
     async def transcribe_audio(self, audio_path: Path) -> str:
-        """Transcribe audio using OpenAI Whisper."""
-        if not self.available:
-            return "Audio transcription not available (OpenAI API key required)"
-
-        try:
-            # Use Path.open for better path handling
-            with audio_path.open("rb") as audio_file:
-                transcript = await openai.Audio.atranscribe(
-                    model=getattr(config, "whisper_model", "whisper-1"), file=audio_file
-                )
-                # Depending on SDK version, transcript may be object or dict
-                return getattr(transcript, "text", None) or transcript.get(
-                    "text", "Transcription completed"
-                )
-        except Exception as e:
-            return f"Transcription failed: {str(e)}"
+        """Transcribe audio using a placeholder, as Google AI doesn't directly support it in this context."""
+        return "Audio transcription not available with the current AI provider."
 
     async def generate_unit_tests(self, code: str, language: str = "python") -> str:
         """Generate unit test stubs for code."""
         if not self.available:
-            return "# Unit test generation not available (OpenAI API key required)"
+            return "# Unit test generation not available (Google API key required)"
 
         try:
-            response = await openai.ChatCompletion.acreate(
-                model=getattr(config, "ai_model", "gpt-3.5-turbo"),
-                messages=[
-                    {
-                        "role": "system",
-                        "content": f"Generate comprehensive unit tests for {language} code. Use best practices and assertions.",
-                    },
-                    {"role": "user", "content": f"Code:\n\n{code}"},
-                ],
-                max_tokens=700,
-                temperature=0.2,
+            response = await self.model.generate_content_async(
+                f"Generate comprehensive unit tests for the following {language} code. Use best practices and assertions.\n\nCode:\n\n{code}"
             )
-            return response.choices[0].message.content
+            return response.text
         except Exception as e:
             return f"# Test generation failed: {str(e)}"
 
@@ -587,11 +556,16 @@ class FileProcessor:
 
         # Security: remove any <script> tags from rendered HTML to avoid executing
         # injected scripts when HTML is viewed or converted to PDF.
-        try:
-            # A lightweight removal of script tags; avoid heavy deps here.
-            rendered = re.sub(r"<script[\s\S]*?>[\s\S]*?<\/script>", "", rendered, flags=re.IGNORECASE)
-        except Exception:
-            pass
+        from contextlib import suppress
+
+        with suppress(Exception):
+            # Robust removal of script tags, including whitespace/newlines/attributes.
+            rendered = re.sub(
+                r"<script\b[^>]*>.*?</script(?:\s|\n|\r|\t|>)*",
+                "",
+                rendered,
+                flags=re.IGNORECASE | re.DOTALL,
+            )
 
         return rendered
 
@@ -637,56 +611,41 @@ class CodeAnalyzer:
     """Analyzes code for issues and suggestions."""
 
     @staticmethod
-    async def lint_python_code(code: str) -> List[str]:
-        """Lint Python code using flake8."""
+    async def lint_python_code(code: str) -> list[str]:
+        """Lint Python code with reduced complexity."""
+        issues = []
         try:
-            # Create a secure temp file path
-            fd, temp_path = tempfile.mkstemp(suffix=".py")
-            os.close(fd)
+            # Use a secure NamedTemporaryFile instead of insecure mktemp
+            import tempfile as _tempfile
 
-            # Write file asynchronously to avoid blocking the event loop
-            try:
-                import aiofiles
+            tmp = _tempfile.NamedTemporaryFile(suffix=".py", delete=False)
+            temp_path = Path(tmp.name)
+            # Close the NamedTemporaryFile handle before writing; aiofiles will
+            # open the path asynchronously. Using delete=False so we can inspect
+            # and remove the file reliably across platforms.
+            tmp.close()
+            async with aiofiles.open(temp_path, "w", encoding="utf-8") as f:
+                await f.write(code)
 
-                async with aiofiles.open(temp_path, "w", encoding="utf-8") as f:
-                    await f.write(code)
-            except Exception:
-                # Fallback to synchronous write if aiofiles not available
-                with open(temp_path, "w", encoding="utf-8") as f:
-                    f.write(code)
-
-            # Use asyncio subprocess to avoid blocking
             proc = await _asyncio.create_subprocess_exec(
                 "flake8",
-                "--select=E,W,F",
-                temp_path,
+                str(temp_path),
                 stdout=_asyncio.subprocess.PIPE,
                 stderr=_asyncio.subprocess.PIPE,
-                )
+            )
+            stdout, stderr = await proc.communicate()
 
-            stdout, _ = await proc.communicate()
-
-            with contextlib.suppress(Exception):
-                Path(temp_path).unlink()
-
-            if proc.returncode == 0:
-                return ["✅ No linting issues found!"]
-            else:
-                output = (stdout or b"").decode(errors="replace")
-                issues: List[str] = []
-                for line in output.splitlines():
-                    if line.strip():
-                        parts = line.split(":", 3)
-                        if len(parts) >= 4:
-                            line_num = parts[1]
-                            col_num = parts[2]
-                            message = parts[3].strip()
-                            issues.append(f"Line {line_num}:{col_num} - {message}")
-                return issues if issues else ["[ERROR] Linting failed"]
-        except FileNotFoundError:
-            return ["[ERROR] flake8 not installed - install with: pip install flake8"]
+            if stdout:
+                issues.extend(stdout.decode().splitlines())
+            if stderr:
+                logger.error(f"Linting error: {stderr.decode()}")
         except Exception as e:
-            return [f"[ERROR] Linting error: {str(e)}"]
+            logger.error(f"Error during linting: {e}")
+        finally:
+            if temp_path.exists():
+                temp_path.unlink()
+
+        return issues
 
 
 # -----------------------------------------------------------------------------
@@ -698,11 +657,23 @@ class GitHubHelper:
     def __init__(self):
         token = getattr(config, "github_token", None)
         if GITHUB_AVAILABLE and token:
-            self.github = Github(token)
+            # Prefer the new `auth=` API when available (pygithub newer versions)
+            try:
+                # Import Auth if present and construct a token auth object
+                from github import Auth  # type: ignore
+
+                self.github = Github(auth=Auth.Token(token))
+            except Exception:
+                # Fall back to older constructor for older pygithub versions
+                self.github = Github(token)
             self.available = True
         else:
             self.github = None
             self.available = False
+            if not token:
+                logger.error("GitHub token is missing in the configuration.")
+            if not GITHUB_AVAILABLE:
+                logger.error("GitHub integration is disabled.")
 
     async def create_pr(
         self,
@@ -733,7 +704,7 @@ class GitHubHelper:
 
     async def get_issues(
         self, repo_name: str, state: str = "open", limit: int = 5
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get GitHub issues for a repository."""
         if not self.available or not self.github:
             return []
@@ -743,7 +714,7 @@ class GitHubHelper:
             def _fetch():
                 repo = self.github.get_repo(repo_name)
                 issues = repo.get_issues(state=state)
-                result: List[Dict[str, Any]] = []
+                result: list[dict[str, Any]] = []
                 for i, issue in enumerate(issues):
                     if i >= limit:
                         break
@@ -771,7 +742,7 @@ class WebSearchHelper:
     """Helper for web search functionality."""
 
     @staticmethod
-    async def google_search(query: str, limit: int = 3) -> List[Dict[str, Any]]:
+    async def google_search(query: str, limit: int = 3) -> list[dict[str, Any]]:
         """Perform a basic web search via DuckDuckGo's HTML results."""
         if not WEB_AVAILABLE:
             return [
@@ -798,7 +769,7 @@ class WebSearchHelper:
                     html = await response.text()
                     soup = BeautifulSoup(html, "html.parser")
 
-                    results: List[Dict[str, Any]] = []
+                    results: list[dict[str, Any]] = []
                     for link in soup.find_all("a", {"class": "result__a"})[:limit]:
                         title = link.get_text().strip()
                         href = link.get("href")

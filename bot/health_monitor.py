@@ -2,15 +2,29 @@
 """
 Health Monitoring Module for Project Automation Bot
 
-Provides health checks, monitoring capabilities, and system status tracking.
+Provides h                     self._check_memory_usage()
+            self._check_disk_usage()
+            self._check_cpu_usage()
+            self._check_file_handles()
+            self._check_process_health()   self._check_memory_usage()
+            self._check_disk_usage()
+            self._check_cpu_usage()
+            self._check_file_handles()
+            await self._check_process_health()    self._check_memory_usage()
+            self._check_disk_usage()
+            self._check_cpu_usage()
+            await self._check_file_handles()      self._check_memory_usage()
+            self._check_disk_usage()
+            await self._check_cpu_usage()th checks, monitoring capabilities, and system status tracking.
 """
 
 import asyncio
 import contextlib
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from typing import Any, Callable, Dict, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import psutil
 
@@ -25,7 +39,7 @@ class HealthMetric:
     name: str
     status: str  # "healthy", "warning", "critical"
     value: Any
-    threshold: Optional[float] = None
+    threshold: float | None = None
     message: str = ""
     last_check: datetime = field(default_factory=datetime.now)
 
@@ -35,7 +49,7 @@ class SystemHealth:
     """Aggregated system health status."""
 
     overall_status: str  # "healthy", "warning", "critical"
-    metrics: Dict[str, HealthMetric] = field(default_factory=dict)
+    metrics: dict[str, HealthMetric] = field(default_factory=dict)
     last_updated: datetime = field(default_factory=datetime.now)
 
 
@@ -45,11 +59,11 @@ class HealthMonitor:
     def __init__(self, check_interval: int = 60):
         """Initialize health monitor with check interval in seconds."""
         self.check_interval = check_interval
-        self.metrics: Dict[str, HealthMetric] = {}
-        self.custom_checks: Dict[str, Callable] = {}
-        self._monitoring_task: Optional[asyncio.Task] = None
+        self.metrics: dict[str, HealthMetric] = {}
+        self.custom_checks: dict[str, Callable] = {}
+        self._monitoring_task: asyncio.Task | None = None
         self._alerts_enabled = True
-        self._alert_cooldowns: Dict[str, datetime] = {}
+        self._alert_cooldowns: dict[str, datetime] = {}
 
     def register_custom_check(self, name: str, check_func: Callable) -> None:
         """Register a custom health check function."""
@@ -59,7 +73,7 @@ class HealthMonitor:
         """Enable or disable health alerts."""
         self._alerts_enabled = enabled
 
-    async def start_monitoring(self) -> None:
+    def start_monitoring(self) -> None:
         """Start continuous health monitoring."""
         if self._monitoring_task and not self._monitoring_task.done():
             logger.warning("Health monitoring already running")
@@ -84,6 +98,7 @@ class HealthMonitor:
                 await asyncio.sleep(self.check_interval)
         except asyncio.CancelledError:
             logger.info("Health monitoring loop cancelled")
+            raise
         except Exception as e:
             logger.error(f"Health monitoring loop error: {e}", exc_info=True)
 
@@ -91,7 +106,7 @@ class HealthMonitor:
         """Check all health metrics and return system status."""
         try:
             # System metrics
-            await self._check_memory_usage()
+            self._check_memory_usage()
             await self._check_disk_usage()
             await self._check_cpu_usage()
             await self._check_file_handles()
@@ -119,7 +134,7 @@ class HealthMonitor:
             return SystemHealth(
                 overall_status=overall_status,
                 metrics=self.metrics.copy(),
-                last_updated=datetime.now(),
+                last_updated=datetime.now(timezone.utc),
             )
 
         except Exception as e:
@@ -127,10 +142,10 @@ class HealthMonitor:
             return SystemHealth(
                 overall_status="critical",
                 metrics={"error": HealthMetric("error", "critical", str(e))},
-                last_updated=datetime.now(),
+                last_updated=datetime.now(timezone.utc),
             )
 
-    async def _check_memory_usage(self) -> None:
+    def _check_memory_usage(self) -> None:
         """Check system memory usage."""
         try:
             memory = psutil.virtual_memory()
@@ -188,7 +203,7 @@ class HealthMonitor:
         """Check CPU usage."""
         try:
             # Get CPU usage over 1 second interval
-            cpu_percent = psutil.cpu_percent(interval=1)
+            cpu_percent = await asyncio.to_thread(psutil.cpu_percent, interval=1)
 
             status = "healthy"
             if cpu_percent > 95:
@@ -200,7 +215,6 @@ class HealthMonitor:
                 name="cpu_usage",
                 status=status,
                 value=cpu_percent,
-                threshold=85.0,
                 message=f"{cpu_percent:.1f}% used",
             )
         except Exception as e:
@@ -214,8 +228,8 @@ class HealthMonitor:
     async def _check_file_handles(self) -> None:
         """Check open file handles for current process."""
         try:
-            process = psutil.Process()
-            open_files = len(process.open_files())
+            process = await asyncio.to_thread(psutil.Process)
+            open_files = len(await asyncio.to_thread(process.open_files))
 
             # Reasonable thresholds for file handles
             status = "healthy"
@@ -242,10 +256,10 @@ class HealthMonitor:
     async def _check_process_health(self) -> None:
         """Check process-specific health metrics."""
         try:
-            process = psutil.Process()
+            process = await asyncio.to_thread(psutil.Process)
 
             # Check memory leaks by monitoring RSS growth
-            memory_info = process.memory_info()
+            memory_info = await asyncio.to_thread(process.memory_info)
             rss_mb = memory_info.rss / 1024 / 1024
 
             status = "healthy"
@@ -263,7 +277,7 @@ class HealthMonitor:
             )
 
             # Check thread count
-            num_threads = process.num_threads()
+            num_threads = await asyncio.to_thread(process.num_threads)
             status = "healthy"
             if num_threads > 100:
                 status = "critical"
@@ -323,7 +337,7 @@ class HealthMonitor:
 
     async def _check_alerts(self) -> None:
         """Check for alert conditions and send notifications."""
-        current_time = datetime.now()
+        current_time = datetime.now(timezone.utc)
 
         for name, metric in self.metrics.items():
             if metric.status in ["warning", "critical"]:
@@ -342,12 +356,12 @@ class HealthMonitor:
             f"Health Alert - {metric.name}: {metric.status} - {metric.message}"
         )
 
-    def get_health_report(self) -> Dict[str, Any]:
+    def get_health_report(self) -> dict[str, Any]:
         """Get a comprehensive health report."""
         overall_status = self._determine_overall_status()
 
         report = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "overall_status": overall_status,
             "metrics": {},
             "summary": {
@@ -375,7 +389,7 @@ class HealthMonitor:
 
         return report
 
-    async def health_check_endpoint(self) -> Dict[str, Any]:
+    async def health_check_endpoint(self) -> dict[str, Any]:
         """Simple health check endpoint for external monitoring."""
         try:
             await self.check_all_health()
@@ -383,7 +397,7 @@ class HealthMonitor:
 
             return {
                 "status": overall_status,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "checks": {
                     name: {"status": metric.status, "message": metric.message}
                     for name, metric in self.metrics.items()
@@ -392,7 +406,7 @@ class HealthMonitor:
         except Exception as e:
             return {
                 "status": "critical",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "error": str(e),
             }
 

@@ -205,9 +205,9 @@ cp .env.example .env
 
 | Secret Type | Environment Variable | Purpose |
 |-------------|---------------------|---------|
-| Discord Bot | `DISCORD_BOT_TOKEN` | Bot authentication |
+| Discord Bot | `BOT_TOKEN` | Bot authentication (Railway standard; `DISCORD_BOT_TOKEN` also accepted)
 | Discord Webhook | `DISCORD_WEBHOOK_URL` | PDF publishing |
-| OpenAI API | `OPENAI_API_KEY` | AI-powered features |
+| Google AI API | `GOOGLE_API_KEY` | AI-powered features |
 | GitHub | `GITHUB_TOKEN` | Repository integration |
 | Admin Users | `DISCORD_ADMIN_IDS` | Admin command access |
 
@@ -253,13 +253,14 @@ Copy `.env.example` to `.env` and configure:
 
 ```bash
 # Core Bot Configuration
-DISCORD_BOT_TOKEN=your_bot_token_here
+# Prefer BOT_TOKEN (Railway); DISCORD_BOT_TOKEN is accepted for compatibility
+BOT_TOKEN=your_bot_token_here
 DISCORD_WEBHOOK_URL=your_webhook_url_here
 DISCORD_ADMIN_IDS=123456789012345678,987654321098765432
 
 # AI Features (optional)
-OPENAI_API_KEY=your_openai_api_key_here
-OPENAI_MODEL=gpt-3.5-turbo
+GOOGLE_API_KEY=your_google_api_key_here
+GOOGLE_MODEL=gemini-1.5-flash
 WHISPER_MODEL=whisper-1
 
 # GitHub Integration (optional)
@@ -366,7 +367,7 @@ The bot validates configuration on startup:
 
 ### System Requirements
 
-- **Python 3.8+** (recommended: 3.11)
+- **Python 3.10+** (recommended: 3.11)
 - **Git** for version control
 - **Text editor** with Python support
 

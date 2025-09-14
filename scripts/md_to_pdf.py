@@ -149,9 +149,9 @@ def markdown_to_html(md_content, title="Document"):
     html_content = md.convert(md_content)
 
     # Get current timestamp
-    from datetime import datetime
+    from datetime import datetime, timezone
 
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
     # Fill in the template
     return html_template.format(
@@ -208,9 +208,16 @@ def convert_md_to_pdf(md_file_path, output_dir=None, custom_options=None):
     if custom_options:
         options.update(custom_options)
 
+    # Explicitly set the path to wkhtmltopdf
+    config = pdfkit.configuration(
+        wkhtmltopdf=r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe"
+    )
+
     try:
         # Convert HTML to PDF
-        pdfkit.from_string(html_content, str(pdf_path), options=options)
+        pdfkit.from_string(
+            html_content, str(pdf_path), options=options, configuration=config
+        )
         logger.info(f"Successfully converted {md_path.name} to {pdf_path}")
         return str(pdf_path)
 

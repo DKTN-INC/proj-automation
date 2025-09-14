@@ -6,7 +6,7 @@ Provides functionality to summarize budgets and categorize spending.
 
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Any, Dict, List, Union
+from typing import Any
 
 
 @dataclass
@@ -20,7 +20,7 @@ class BudgetSummary:
 
 
 def summarize_budget(
-    transactions: List[Dict[str, Any]], limit: Union[Decimal, float, int]
+    transactions: list[dict[str, Any]], limit: Decimal | float | int
 ) -> BudgetSummary:
     """
     Summarize budget based on transactions and spending limit.
@@ -77,10 +77,10 @@ def summarize_budget(
 
 
 def categorize_spend(
-    items: List[Dict[str, Any]],
+    items: list[dict[str, Any]],
     category_key: str = "category",
     amount_key: str = "amount",
-) -> Dict[str, Decimal]:
+) -> dict[str, Decimal]:
     """
     Categorize and aggregate spending by category.
 
@@ -95,7 +95,7 @@ def categorize_spend(
     if not items:
         return {}
 
-    category_totals: Dict[str, Decimal] = {}
+    category_totals: dict[str, Decimal] = {}
 
     for item in items:
         category = item.get(category_key, "uncategorized")

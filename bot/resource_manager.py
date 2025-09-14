@@ -10,11 +10,12 @@ import gc
 import logging
 import os
 import tempfile
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 import aiohttp
 
@@ -33,7 +34,7 @@ class ResourceStats:
     max_active: int = 0
     cleanup_count: int = 0
     error_count: int = 0
-    last_cleanup: Optional[datetime] = None
+    last_cleanup: datetime | None = None
 
 
 class ResourceManager(Generic[T]):
@@ -52,10 +53,10 @@ class ResourceManager(Generic[T]):
         self.cleanup_interval = cleanup_interval
         self.max_idle_time = max_idle_time
 
-        self._resources: Dict[str, T] = {}
-        self._resource_metadata: Dict[str, Dict[str, Any]] = {}
+        self._resources: dict[str, T] = {}
+        self._resource_metadata: dict[str, dict[str, Any]] = {}
         self._stats = ResourceStats()
-        self._cleanup_task: Optional[asyncio.Task] = None
+        self._cleanup_task: asyncio.Task | None = None
         self._lock = asyncio.Lock()
 
     async def start(self) -> None:
@@ -92,7 +93,9 @@ class ResourceManager(Generic[T]):
         async with self._lock:
             if key in self._resources:
                 # Update last accessed time
-                self._resource_metadata[key]["last_accessed"] = datetime.now()
+                self._resource_metadata[key]["last_accessed"] = datetime.now(
+                    timezone.utc
+                )
                 return self._resources[key]
 
             # Check resource limits
@@ -108,8 +111,8 @@ class ResourceManager(Generic[T]):
                 )
                 self._resources[key] = resource
                 self._resource_metadata[key] = {
-                    "created_at": datetime.now(),
-                    "last_accessed": datetime.now(),
+                    "created_at": datetime.now(timezone.utc),
+                    "last_accessed": datetime.now(timezone.utc),
                     "access_count": 0,
                 }
 
@@ -146,7 +149,7 @@ class ResourceManager(Generic[T]):
             return
 
         async with self._lock:
-            current_time = datetime.now()
+            current_time = datetime.now(timezone.utc)
             expired_keys = []
 
             for key, metadata in self._resource_metadata.items():
@@ -221,7 +224,7 @@ class ResourceManager(Generic[T]):
         except Exception as e:
             logger.warning(f"Error cleaning up resource: {e}")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get resource manager statistics."""
         return {
             "name": self.name,
@@ -246,14 +249,14 @@ class FileManager:
         """Initialize file manager."""
         self.max_files = max_files
         self.max_age_hours = max_age_hours
-        self._temp_files: Dict[str, Path] = {}
-        self._file_metadata: Dict[str, Dict[str, Any]] = {}
+        self._temp_files: dict[str, Path] = {}
+        self._file_metadata: dict[str, dict[str, Any]] = {}
         self._lock = asyncio.Lock()
 
     @asynccontextmanager
     async def temporary_file(
         self, suffix: str = ".tmp", prefix: str = "automation_"
-    ) -> Path:
+    ) -> AsyncGenerator[Path, None]:
         """Create a temporary file with automatic cleanup."""
         temp_file = None
         file_id = None
@@ -269,7 +272,7 @@ class FileManager:
             async with self._lock:
                 self._temp_files[file_id] = temp_file
                 self._file_metadata[file_id] = {
-                    "created_at": datetime.now(),
+                    "created_at": datetime.now(timezone.utc),
                     "suffix": suffix,
                     "prefix": prefix,
                 }
@@ -293,7 +296,7 @@ class FileManager:
 
     async def cleanup_old_files(self) -> None:
         """Cleanup old temporary files."""
-        current_time = datetime.now()
+        current_time = datetime.now(timezone.utc)
         max_age = timedelta(hours=self.max_age_hours)
 
         async with self._lock:
@@ -318,7 +321,7 @@ class FileManager:
             if old_files:
                 logger.info(f"Cleaned up {len(old_files)} old temporary files")
 
-    async def get_file_stats(self) -> Dict[str, Any]:
+    async def get_file_stats(self) -> dict[str, Any]:
         """Get file manager statistics."""
         async with self._lock:
             total_size = 0
@@ -344,8 +347,8 @@ class HTTPSessionManager:
     def __init__(self, max_sessions: int = 10):
         """Initialize HTTP session manager."""
         self.max_sessions = max_sessions
-        self._sessions: Dict[str, aiohttp.ClientSession] = {}
-        self._session_metadata: Dict[str, Dict[str, Any]] = {}
+        self._sessions: dict[str, aiohttp.ClientSession] = {}
+        self._session_metadata: dict[str, dict[str, Any]] = {}
         self._lock = asyncio.Lock()
 
     async def get_session(
@@ -356,7 +359,9 @@ class HTTPSessionManager:
             if key in self._sessions:
                 session = self._sessions[key]
                 if not session.closed:
-                    self._session_metadata[key]["last_used"] = datetime.now()
+                    self._session_metadata[key]["last_used"] = datetime.now(
+                        timezone.utc
+                    )
                     return session
                 else:
                     # Session is closed, remove it
@@ -381,8 +386,8 @@ class HTTPSessionManager:
 
             self._sessions[key] = session
             self._session_metadata[key] = {
-                "created_at": datetime.now(),
-                "last_used": datetime.now(),
+                "created_at": datetime.now(timezone.utc),
+                "last_used": datetime.now(timezone.utc),
                 "request_count": 0,
             }
 
@@ -413,7 +418,7 @@ class HTTPSessionManager:
             if count > 0:
                 logger.info(f"Closed all {count} HTTP sessions")
 
-    def get_session_stats(self) -> Dict[str, Any]:
+    def get_session_stats(self) -> dict[str, Any]:
         """Get HTTP session statistics."""
         active_sessions = sum(1 for s in self._sessions.values() if not s.closed)
 
@@ -446,7 +451,7 @@ class MemoryManager:
         self.gc_threshold_mb = gc_threshold_mb
         self._objects_tracked = 0
 
-    async def force_garbage_collection(self) -> Dict[str, int]:
+    def force_garbage_collection(self) -> dict[str, int]:
         """Force garbage collection and return statistics."""
         logger.debug("Forcing garbage collection")
 
@@ -521,7 +526,7 @@ async def cleanup_resources() -> None:
     await memory_manager.force_garbage_collection()
 
 
-async def get_resource_stats() -> Dict[str, Any]:
+async def get_resource_stats() -> dict[str, Any]:
     """Get statistics for all resource managers."""
     return {
         "files": await file_manager.get_file_stats(),

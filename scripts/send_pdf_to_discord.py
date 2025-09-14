@@ -7,14 +7,13 @@ Sends PDF files to Discord via webhook
 import argparse
 import json
 import logging
+import random
 import sys
-from datetime import datetime
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
-import time
-import random
-from typing import Optional
 
 
 # Configure logging
@@ -42,9 +41,9 @@ class DiscordWebhookSender:
         self.external_upload_url = None
 
         # Optional S3 config (populated from CLI or environment if used)
-        self.s3_bucket: Optional[str] = None
-        self.s3_region: Optional[str] = None
-        self.s3_prefix: Optional[str] = None
+        self.s3_bucket: str | None = None
+        self.s3_region: str | None = None
+        self.s3_prefix: str | None = None
 
     def send_pdf(self, pdf_path, message=None, username="PDF Bot", avatar_url=None):
         """
@@ -82,7 +81,9 @@ class DiscordWebhookSender:
             if external_upload_url:
                 link = self._upload_external_and_get_link(pdf_file, external_upload_url)
                 if link:
-                    return self._send_webhook_with_link(pdf_file, link, message, username, avatar_url)
+                    return self._send_webhook_with_link(
+                        pdf_file, link, message, username, avatar_url
+                    )
             return False
 
         try:
@@ -100,12 +101,14 @@ class DiscordWebhookSender:
                 "title": "📋 Idea Sheet Published",
                 "description": f"**File:** {pdf_file.name}\n**Size:** {file_size / 1024:.1f} KB",
                 "color": 0x3498DB,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "footer": {"text": "Project Automation Platform"},
                 "fields": [
                     {
                         "name": "📅 Generated",
-                        "value": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "value": datetime.now(timezone.utc).strftime(
+                            "%Y-%m-%d %H:%M:%S"
+                        ),
                         "inline": True,
                     }
                 ],
@@ -128,19 +131,27 @@ class DiscordWebhookSender:
                             self.webhook_url, data=data, files=files, timeout=30
                         )
 
-                    if response.status_code == 204:
+                    if response.status_code in (200, 204):
                         logger.info(f"Successfully sent {pdf_file.name} to Discord")
                         return True
 
                     # If payload too large or server indicates so, attempt external upload
                     if response.status_code in (413,):
-                        logger.warning("Webhook rejected the attachment as too large (HTTP 413)")
+                        logger.warning(
+                            "Webhook rejected the attachment as too large (HTTP 413)"
+                        )
                         external_upload_url = getattr(self, "external_upload_url", None)
                         if external_upload_url:
-                            link = self._upload_external_and_get_link(pdf_file, external_upload_url)
+                            link = self._upload_external_and_get_link(
+                                pdf_file, external_upload_url
+                            )
                             if link:
-                                return self._send_webhook_with_link(pdf_file, link, message, username, avatar_url)
-                        logger.error(f"Discord webhook failed: {response.status_code} - {response.text}")
+                                return self._send_webhook_with_link(
+                                    pdf_file, link, message, username, avatar_url
+                                )
+                        logger.error(
+                            f"Discord webhook failed: {response.status_code} - {response.text}"
+                        )
                         return False
 
                     # Rate limited: 429 -> retry with backoff
@@ -148,45 +159,73 @@ class DiscordWebhookSender:
                         retry_after = None
                         try:
                             j = response.json()
-                            retry_after = j.get("retry_after") or j.get("retry_after_ms")
+                            retry_after = j.get("retry_after") or j.get(
+                                "retry_after_ms"
+                            )
                         except Exception:
                             pass
 
-                        sleep_for = (retry_after / 1000.0) if retry_after else backoff_base * (2 ** (attempt - 1))
+                        sleep_for = (
+                            (retry_after / 1000.0)
+                            if retry_after
+                            else backoff_base * (2 ** (attempt - 1))
+                        )
                         # add jitter
                         sleep_for = sleep_for + random.uniform(0, 0.5)
-                        logger.warning(f"Rate limited by Discord (429). Sleeping {sleep_for:.1f}s before retry (attempt {attempt}/{max_retries})")
+                        logger.warning(
+                            f"Rate limited by Discord (429). Sleeping {sleep_for:.1f}s before retry (attempt {attempt}/{max_retries})"
+                        )
                         time.sleep(sleep_for)
                         if attempt > max_retries:
-                            logger.error(f"Exceeded max retries ({max_retries}) for {pdf_file.name}")
+                            logger.error(
+                                f"Exceeded max retries ({max_retries}) for {pdf_file.name}"
+                            )
                             break
                         continue
 
                     # 5xx server errors: retry
                     if 500 <= response.status_code < 600 and attempt <= max_retries:
-                        sleep_for = backoff_base * (2 ** (attempt - 1)) + random.uniform(0, 0.5)
-                        logger.warning(f"Server error {response.status_code}. Retrying in {sleep_for:.1f}s (attempt {attempt}/{max_retries})")
+                        sleep_for = backoff_base * (
+                            2 ** (attempt - 1)
+                        ) + random.uniform(0, 0.5)
+                        logger.warning(
+                            f"Server error {response.status_code}. Retrying in {sleep_for:.1f}s (attempt {attempt}/{max_retries})"
+                        )
                         time.sleep(sleep_for)
                         if attempt > max_retries:
-                            logger.error(f"Exceeded max retries ({max_retries}) for {pdf_file.name}")
+                            logger.error(
+                                f"Exceeded max retries ({max_retries}) for {pdf_file.name}"
+                            )
                             break
                         continue
 
                     # Non-retriable failure: log details and return False
                     if logger.isEnabledFor(logging.DEBUG):
-                        logger.debug(f"Webhook response headers: {getattr(response, 'headers', {})}")
-                        logger.debug(f"Webhook response body: {getattr(response, 'text', '')}")
+                        logger.debug(
+                            f"Webhook response headers: {getattr(response, 'headers', {})}"
+                        )
+                        logger.debug(
+                            f"Webhook response body: {getattr(response, 'text', '')}"
+                        )
 
-                    logger.error(f"Discord webhook failed: {response.status_code} - {response.text}")
+                    logger.error(
+                        f"Discord webhook failed: {response.status_code} - {response.text}"
+                    )
                     return False
 
                 except requests.exceptions.RequestException as e:
                     if attempt <= max_retries:
-                        sleep_for = backoff_base * (2 ** (attempt - 1)) + random.uniform(0, 0.5)
-                        logger.warning(f"Network error sending to Discord: {e}. Retrying in {sleep_for:.1f}s (attempt {attempt}/{max_retries})")
+                        sleep_for = backoff_base * (
+                            2 ** (attempt - 1)
+                        ) + random.uniform(0, 0.5)
+                        logger.warning(
+                            f"Network error sending to Discord: {e}. Retrying in {sleep_for:.1f}s (attempt {attempt}/{max_retries})"
+                        )
                         time.sleep(sleep_for)
                         continue
-                    logger.error(f"Network error sending to Discord after {attempt} attempts: {e}")
+                    logger.error(
+                        f"Network error sending to Discord after {attempt} attempts: {e}"
+                    )
                     return False
 
         except requests.exceptions.RequestException as e:
@@ -255,7 +294,9 @@ class DiscordWebhookSender:
         )
         return results
 
-    def _upload_external_and_get_link(self, pdf_file: Path, upload_url: str) -> Optional[str]:
+    def _upload_external_and_get_link(
+        self, pdf_file: Path, upload_url: str
+    ) -> str | None:
         """Upload PDF to an external URL and return a public link.
 
         This is a minimal generic implementation that does a single POST of the
@@ -272,7 +313,9 @@ class DiscordWebhookSender:
                     j = response.json()
                     link = j.get("url") or j.get("file_url") or j.get("location")
                     if link:
-                        logger.info(f"Uploaded {pdf_file.name} to external host: {link}")
+                        logger.info(
+                            f"Uploaded {pdf_file.name} to external host: {link}"
+                        )
                         return link
                 except Exception:
                     # Not JSON; maybe response.text contains a link
@@ -280,12 +323,14 @@ class DiscordWebhookSender:
                     if text.startswith("http"):
                         logger.info(f"Uploaded and received link: {text}")
                         return text.strip()
-            logger.warning(f"External upload failed: {response.status_code} - {getattr(response, 'text', '')}")
+            logger.warning(
+                f"External upload failed: {response.status_code} - {getattr(response, 'text', '')}"
+            )
         except Exception as e:
             logger.warning(f"External upload error: {e}")
         return None
 
-    def _upload_to_s3_presigned(self, pdf_file: Path) -> Optional[str]:
+    def _upload_to_s3_presigned(self, pdf_file: Path) -> str | None:
         """Upload using S3 presigned POST/PUT. Requires boto3.
 
         This helper will attempt to use boto3 to create a presigned PUT URL and
@@ -311,7 +356,9 @@ class DiscordWebhookSender:
         key = f"{prefix.rstrip('/')}/{pdf_file.name}" if prefix else pdf_file.name
 
         try:
-            s3 = boto3.client("s3", region_name=region) if region else boto3.client("s3")
+            s3 = (
+                boto3.client("s3", region_name=region) if region else boto3.client("s3")
+            )
             # Generate presigned PUT URL
             presigned = s3.generate_presigned_url(
                 "put_object",
@@ -336,7 +383,14 @@ class DiscordWebhookSender:
             logger.warning(f"S3 presigned upload failed: {e}")
         return None
 
-    def _send_webhook_with_link(self, pdf_file: Path, link: str, message: Optional[str], username: str, avatar_url: Optional[str]) -> bool:
+    def _send_webhook_with_link(
+        self,
+        pdf_file: Path,
+        link: str,
+        message: str | None,
+        username: str,
+        avatar_url: str | None,
+    ) -> bool:
         """Send a webhook message linking to an externally-hosted PDF instead of attaching it."""
         payload = {
             "username": username,
@@ -346,7 +400,7 @@ class DiscordWebhookSender:
                     "title": "📋 Idea Sheet Published",
                     "description": f"**File:** {pdf_file.name}\n[Download PDF]({link})",
                     "color": 0x3498DB,
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "footer": {"text": "Project Automation Platform"},
                 }
             ],
@@ -359,7 +413,9 @@ class DiscordWebhookSender:
             if response.status_code == 204:
                 logger.info(f"Successfully sent link for {pdf_file.name} to Discord")
                 return True
-            logger.error(f"Failed to send link via webhook: {response.status_code} - {getattr(response, 'text', '')}")
+            logger.error(
+                f"Failed to send link via webhook: {response.status_code} - {getattr(response, 'text', '')}"
+            )
         except Exception as e:
             logger.error(f"Network error sending link to Discord: {e}")
         return False
@@ -385,7 +441,7 @@ def send_notification(webhook_url, title, message, color=0x3498DB):
                 "title": title,
                 "description": message,
                 "color": color,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         ],
     }

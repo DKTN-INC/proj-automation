@@ -24,11 +24,11 @@ def main():
     print("\n📋 Environment Configuration:")
 
     required_vars = {
-        "DISCORD_BOT_TOKEN": "Discord bot token (required to run bot)",
+        "BOT_TOKEN": "Discord bot token (preferred for Railway; will accept DISCORD_BOT_TOKEN)",
     }
 
     optional_vars = {
-        "OPENAI_API_KEY": "OpenAI API key (for AI features)",
+        "GOOGLE_API_KEY": "Google API key (for AI features)",
         "LOG_LEVEL": "Logging level (DEBUG, INFO, WARNING, ERROR)",
         "STRUCTURED_LOGS": "Use structured JSON logging (true/false)",
         "LOG_FILE": "Path to log file (optional)",
@@ -61,11 +61,11 @@ def main():
         print("  ❌ discord.py not installed")
 
     try:
-        import openai
+        import google.generativeai
 
-        print(f"  ✅ openai: {openai.__version__}")
+        print(f"  ✅ google-generativeai: {google.generativeai.__version__}")
     except ImportError:
-        print("  ❌ openai not installed")
+        print("  ❌ google-generativeai not installed")
 
     try:
         import aiohttp
@@ -80,9 +80,9 @@ def main():
     sys.path.insert(0, "bot")
 
     try:
-        print("  ✅ OpenAI wrapper")
+        print("  ✅ Google API wrapper")
     except Exception as e:
-        print(f"  ❌ OpenAI wrapper: {e}")
+        print(f"  ❌ Google API wrapper: {e}")
 
     try:
         print("  ✅ Message chunker")
@@ -109,10 +109,10 @@ def main():
     print("Create a .env file with these variables:")
     print()
     print("# Required")
-    print("DISCORD_BOT_TOKEN=your_discord_bot_token_here")
+    print("BOT_TOKEN=your_discord_bot_token_here")
     print()
     print("# Optional - AI Features")
-    print("OPENAI_API_KEY=your_openai_api_key_here")
+    print("GOOGLE_API_KEY=your_google_api_key_here")
     print()
     print("# Optional - Logging")
     print("LOG_LEVEL=INFO")
@@ -136,18 +136,19 @@ def main():
     print("  export LOG_FILE=/var/log/discord-bot.log")
 
     # Final status
-    discord_token = os.getenv("DISCORD_BOT_TOKEN")
-    openai_key = os.getenv("OPENAI_API_KEY")
+    # Prefer BOT_TOKEN but accept DISCORD_BOT_TOKEN for compatibility
+    discord_token = os.getenv("BOT_TOKEN") or os.getenv("DISCORD_BOT_TOKEN")
+    google_key = os.getenv("GOOGLE_API_KEY")
 
     print("\n" + "=" * 40)
     if discord_token:
         print("🎉 Bot is ready to run!")
-        if openai_key:
+        if google_key:
             print("✨ AI features enabled")
         else:
-            print("⚪ AI features disabled (no OpenAI key)")
+            print("⚪ AI features disabled (no Google API key)")
     else:
-        print("⚠️  Set DISCORD_BOT_TOKEN to run the bot")
+        print("⚠️  Set BOT_TOKEN (or legacy DISCORD_BOT_TOKEN) to run the bot")
 
 
 if __name__ == "__main__":

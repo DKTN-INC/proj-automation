@@ -1,0 +1,50 @@
+name: Run All Checks (Unix)
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  run-all-checks-unix:
+    name: Run All Checks on Unix
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_VERSION: '3.11'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Ensure required secret is present
+        run: |
+          # Prefer BOT_TOKEN, fallback to DISCORD_BOT_TOKEN
+          if [ -z "${{ secrets.BOT_TOKEN }}" ] && [ -z "${{ secrets.DISCORD_BOT_TOKEN }}" ]; then
+            echo "Required secret BOT_TOKEN (or DISCORD_BOT_TOKEN) is missing. Set it in repository settings -> Secrets." >&2
+            exit 1
+          else
+            echo "Bot token secret found."
+          fi
+
+      - name: Export secrets to environment
+        run: |
+          if [ -n "${{ secrets.BOT_TOKEN }}" ]; then
+            echo "BOT_TOKEN=${{ secrets.BOT_TOKEN }}" >> $GITHUB_ENV
+          elif [ -n "${{ secrets.DISCORD_BOT_TOKEN }}" ]; then
+            echo "DISCORD_BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN }}" >> $GITHUB_ENV
+          fi
+          echo "ENFORCE_REQUIRED_SECRETS=true" >> $GITHUB_ENV
+
+      - name: Make run_all_checks.sh executable
+        run: |
+          chmod +x ./scripts/run_all_checks.sh || true
+
+      - name: Run all checks (Unix shell)
+        run: |
+          ./scripts/run_all_checks.sh

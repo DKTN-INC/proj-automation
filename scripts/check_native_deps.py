@@ -12,6 +12,7 @@ Exit codes:
 This script is safe to run in CI and prints actionable guidance on how to
 install missing components.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -32,7 +33,9 @@ def check_ffmpeg() -> tuple[bool, str]:
         return False, "ffmpeg not found on PATH"
 
     try:
-        out = subprocess.check_output([ff, "-version"], stderr=subprocess.STDOUT, text=True)
+        out = subprocess.check_output(
+            [ff, "-version"], stderr=subprocess.STDOUT, text=True
+        )
         first = out.splitlines()[0] if out else "(no output)"
         return True, f"ffmpeg found: {first}"
     except Exception as exc:  # pragma: no cover - best-effort
@@ -58,7 +61,10 @@ def check_weasyprint() -> tuple[bool, str]:
     except ImportError:
         return False, "WeasyPrint python package is not installed"
     except OSError as ose:  # missing native libs often raise OSError
-        return False, f"WeasyPrint import failed with OSError (likely missing native libs): {ose}"
+        return (
+            False,
+            f"WeasyPrint import failed with OSError (likely missing native libs): {ose}",
+        )
     except Exception as exc:  # pragma: no cover - defensive
         return False, f"WeasyPrint import raised an unexpected error: {exc!r}"
 
@@ -71,30 +77,42 @@ def print_guidance(missing_ffmpeg: bool, missing_weasy: bool) -> None:
     print("\nSome native dependencies are missing or incomplete:\n")
 
     if missing_ffmpeg:
-        print(textwrap.dedent(
-            """
+        print(
+            textwrap.dedent(
+                """
             - ffmpeg: not found on PATH. Audio/video features require ffmpeg.
               Install options:
                 * Windows: use Chocolatey `choco install ffmpeg` or the project's `scripts/install_ffmpeg.ps1`.
                 * Ubuntu/Debian: `sudo apt-get install ffmpeg`.
                 * macOS: `brew install ffmpeg`.
-            """))
+            """
+            )
+        )
 
     if missing_weasy:
-        print(textwrap.dedent(
-            """
+        print(
+            textwrap.dedent(
+                """
             - WeasyPrint: python package or native libraries missing. For PDF
               generation WeasyPrint needs GTK/Cairo/Pango and libffi installed.
               Install options:
                 * Ubuntu/Debian: `sudo apt-get install libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0 libffi-dev shared-mime-info`
                 * Windows: install Chocolatey and then `choco install gtk-runtime cairo pango libffi` (best-effort), or use an Ubuntu runner in CI.
                 * Alternatively, disable markdown->PDF features in CI if not required.
-            """))
+            """
+            )
+        )
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Check native dependencies (ffmpeg, WeasyPrint) and print guidance.")
-    parser.add_argument("--fail-on-missing", action="store_true", help="Exit with code 1 if any dependency is missing")
+    parser = argparse.ArgumentParser(
+        description="Check native dependencies (ffmpeg, WeasyPrint) and print guidance."
+    )
+    parser.add_argument(
+        "--fail-on-missing",
+        action="store_true",
+        help="Exit with code 1 if any dependency is missing",
+    )
     args = parser.parse_args(argv)
 
     ok_ffmpeg, msg_ffmpeg = check_ffmpeg()
@@ -111,7 +129,9 @@ def main(argv: list[str] | None = None) -> int:
         print_guidance(missing_ffmpeg, missing_weasy)
 
     if args.fail_on_missing and (missing_ffmpeg or missing_weasy):
-        print("Exiting with failure due to missing native dependencies.", file=sys.stderr)
+        print(
+            "Exiting with failure due to missing native dependencies.", file=sys.stderr
+        )
         return 1
 
     return 0

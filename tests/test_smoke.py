@@ -43,6 +43,7 @@ class TestImports:
         try:
             import config
             import settings
+
             import utils
 
             assert config is not None
@@ -114,7 +115,8 @@ class TestBasicFunctionality:
 
     def test_python_version(self) -> None:
         """Test that Python version is compatible."""
-        assert sys.version_info >= (3, 8), "Python 3.8+ required"
+
+    assert sys.version_info >= (3, 10), "Python 3.10+ required"
 
     def test_pathlib_operations(self) -> None:
         """Test basic file operations work."""

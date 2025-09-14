@@ -3,8 +3,8 @@
 discord.py>=2.3.0
 python-dotenv>=1.0.0
 
-# AI and OpenAI integration
-openai>=1.0.0
+# AI and Google integration
+
 tiktoken>=0.5.0
 
 # File processing and OCR
@@ -33,7 +33,6 @@ aiohttp>=3.8.0
 markdown>=3.5.0
 Jinja2>=3.1.0
 pdfkit>=1.0.0
-weasyprint>=59.0
 
 # Enhanced markdown features
 pymdown-extensions>=10.0.0

@@ -10,7 +10,6 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 
 class StructuredFormatter(logging.Formatter):
@@ -24,7 +23,7 @@ class StructuredFormatter(logging.Formatter):
         """Format log record as structured JSON."""
         # Base log structure
         log_entry = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat() + "Z",
             "level": record.levelname,
             "service": self.service_name,
             "logger": record.name,
@@ -92,7 +91,7 @@ class HumanReadableFormatter(logging.Formatter):
 def setup_logging(
     level: str = "INFO",
     structured: bool = False,
-    log_file: Optional[str] = None,
+    log_file: str | None = None,
     service_name: str = "proj-automation-bot",
 ) -> logging.Logger:
     """
@@ -247,8 +246,8 @@ def log_async_operation(logger: logging.Logger, operation_name: str):
         operation_name: Name of the operation being logged
 
     Usage:
-        @log_async_operation(logger, "openai_api_call")
-        async def call_openai(...):
+        @log_async_operation(logger, "google_api_call")
+        async def call_google_ai(...):
             ...
     """
 

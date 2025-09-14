@@ -8,7 +8,7 @@ Centralized configuration for reliability settings across the automation platfor
 import logging
 import os
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any
 
 
 logger = logging.getLogger(__name__)
@@ -138,7 +138,7 @@ class ReliabilityConfig:
             ),
         )
 
-    def get_config_dict(self) -> Dict[str, Any]:
+    def get_config_dict(self) -> dict[str, Any]:
         """Get configuration as dictionary."""
         return {
             "circuit_breaker": {

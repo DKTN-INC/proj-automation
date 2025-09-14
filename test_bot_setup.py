@@ -7,81 +7,90 @@ Verifies that the bot can be imported and basic functionality works
 import sys
 from pathlib import Path
 
-
-# Add the bot directory to the path
-bot_dir = Path(__file__).parent / "bot"
-sys.path.insert(0, str(bot_dir))
+from dotenv import load_dotenv
 
 
-def test_imports():
-    """Test that all required modules can be imported."""
+# Ensure project root and bot package are importable
+project_root = Path(__file__).parent
+bot_dir = project_root / "bot"
+sys.path.insert(0, str(project_root))
+
+# Load environment from .env at project root if present
+env_path = project_root / ".env"
+if env_path.exists():
+    load_dotenv(dotenv_path=str(env_path))
+
+
+def _check_imports() -> bool:
+    """Helper that verifies required modules can be imported.
+
+    Returns True on success, False on failure. Tests should call the
+    corresponding `test_` wrapper which will assert on the result.
+    """
     print("🧪 Testing bot imports...")
 
     try:
-        # Test config import
+        # Prefer explicit package import for config
+        try:
+            from bot.config import config  # noqa: F401
+        except Exception:
+            # allow running tests from repo root where package import may differ
+            from config import config  # type: ignore  # noqa: F401
 
-        print("✅ Config module imported successfully")
-
-        # Test basic bot functionality
-
-        print("✅ Discord.py imported successfully")
-
-        # Test feature imports
+        # Test feature imports under the `bot` package
         import importlib
 
         # Optional feature imports - import dynamically to avoid unused-import lints
         try:
-            importlib.import_module("features.budget")
-            print("✅ Budget features module available")
-        except ImportError as e:
-            print(f"⚠️  Budget features import failed: {e}")
+            importlib.import_module("bot.features.budget")
+        except ImportError:
+            # It's acceptable for optional features to be missing in minimal dev envs
+            pass
 
         try:
-            importlib.import_module("features.marketing")
-            print("✅ Marketing features module available")
-        except ImportError as e:
-            print(f"⚠️  Marketing features import failed: {e}")
+            importlib.import_module("bot.features.marketing")
+        except ImportError:
+            pass
 
-        # Test utility imports
         try:
-            importlib.import_module("utils.ai_helper")
-            print("✅ AI helper module available")
-        except ImportError as e:
-            print(f"⚠️  AI helper import failed: {e}")
+            importlib.import_module("bot.utils.ai_helper")
+        except ImportError:
+            pass
 
         return True
 
-    except Exception as e:
-        print(f"❌ Import test failed: {e}")
+    except Exception:
+        return False
+
+
+def test_imports():
+    assert _check_imports(), "Import checks failed"
+
+
+def _check_config() -> bool:
+    """Helper that verifies configuration loads without raising exceptions.
+
+    Returns True on success. Tests should call `test_config` which asserts
+    on the result so pytest sees failures correctly.
+    """
+    try:
+        try:
+            from bot.config import config
+        except Exception:
+            from config import config  # type: ignore
+
+        # Basic surface checks (do not require secrets in CI)
+        _ = getattr(config, "discord_token", None)
+        _ = getattr(config, "google_api_key", None)
+        _ = getattr(config, "admin_user_ids", None)
+
+        return True
+    except Exception:
         return False
 
 
 def test_config():
-    """Test configuration loading."""
-    print("\n🧪 Testing configuration...")
-
-    try:
-        from config import config
-
-        # Check if required environment variables are set
-        if hasattr(config, "discord_token") and config.discord_token:
-            print("✅ Discord token configured")
-        else:
-            print("⚠️  Discord token not configured")
-
-        if hasattr(config, "openai_api_key") and config.openai_api_key:
-            print("✅ OpenAI API key configured")
-        else:
-            print("⚠️  OpenAI API key not configured")
-
-        if hasattr(config, "admin_user_ids"):
-            print(f"✅ Admin users configured: {len(config.admin_user_ids)}")
-
-        return True
-
-    except Exception as e:
-        print(f"❌ Config test failed: {e}")
-        return False
+    assert _check_config(), "Configuration loading failed"
 
 
 def main():
@@ -89,8 +98,8 @@ def main():
     print("🚀 Discord Bot Test Suite")
     print("=" * 40)
 
-    import_success = test_imports()
-    config_success = test_config()
+    import_success = _check_imports()
+    config_success = _check_config()
 
     print("\n" + "=" * 40)
     if import_success and config_success:

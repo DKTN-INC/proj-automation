@@ -8,9 +8,8 @@ import asyncio
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import aiofiles
 import aiohttp
@@ -22,9 +21,7 @@ logger = logging.getLogger(__name__)
 class AsyncDiscordWebhook:
     """Async Discord webhook client using aiohttp."""
 
-    def __init__(
-        self, webhook_url: str, session: Optional[aiohttp.ClientSession] = None
-    ):
+    def __init__(self, webhook_url: str, session: aiohttp.ClientSession | None = None):
         """
         Initialize async Discord webhook client.
 
@@ -51,8 +48,8 @@ class AsyncDiscordWebhook:
         self,
         content: str,
         username: str = "Bot",
-        avatar_url: Optional[str] = None,
-        embeds: Optional[List[Dict]] = None,
+        avatar_url: str | None = None,
+        embeds: list[dict] | None = None,
     ) -> bool:
         """
         Send a text message to Discord.
@@ -97,9 +94,9 @@ class AsyncDiscordWebhook:
     async def send_pdf(
         self,
         pdf_path: str,
-        message: Optional[str] = None,
+        message: str | None = None,
         username: str = "PDF Bot",
-        avatar_url: Optional[str] = None,
+        avatar_url: str | None = None,
     ) -> bool:
         """
         Send a PDF file to Discord via webhook.
@@ -147,12 +144,14 @@ class AsyncDiscordWebhook:
                 "title": "📋 Idea Sheet Published",
                 "description": f"**File:** {pdf_file.name}\n**Size:** {file_size / 1024:.1f} KB",
                 "color": 0x3498DB,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "footer": {"text": "Project Automation Platform"},
                 "fields": [
                     {
                         "name": "📅 Generated",
-                        "value": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "value": datetime.now(timezone.utc).strftime(
+                            "%Y-%m-%d %H:%M:%S"
+                        ),
                         "inline": True,
                     }
                 ],
@@ -196,10 +195,10 @@ class AsyncDiscordWebhook:
 
     async def send_multiple_pdfs(
         self,
-        pdf_paths: List[str],
-        batch_message: Optional[str] = None,
+        pdf_paths: list[str],
+        batch_message: str | None = None,
         username: str = "PDF Bot",
-    ) -> Dict[str, bool]:
+    ) -> dict[str, bool]:
         """
         Send multiple PDF files to Discord.
 
@@ -243,7 +242,7 @@ async def send_notification(
         "title": title,
         "description": message,
         "color": color,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "footer": {"text": "Project Automation Platform"},
     }
 
@@ -252,7 +251,7 @@ async def send_notification(
 
 
 async def post_pdf_to_discord(
-    webhook_url: str, pdf_path: str, message: Optional[str] = None
+    webhook_url: str, pdf_path: str, message: str | None = None
 ) -> bool:
     """
     Convenience function to post a PDF to Discord.
@@ -270,13 +269,13 @@ async def post_pdf_to_discord(
 
 
 # Environment-aware helper functions
-def get_webhook_url_from_env() -> Optional[str]:
+def get_webhook_url_from_env() -> str | None:
     """Get Discord webhook URL from environment variables."""
     return os.getenv("DISCORD_WEBHOOK_URL")
 
 
 async def send_pdf_if_webhook_configured(
-    pdf_path: str, message: Optional[str] = None
+    pdf_path: str, message: str | None = None
 ) -> bool:
     """
     Send PDF to Discord if webhook URL is configured in environment.
