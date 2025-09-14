@@ -60,6 +60,8 @@ try:
         parse_discord_messages,
         shutdown_thread_pool,
     )
+    from . import ideas
+    from . import tasks
 except ImportError:
     # Fallbacks for running script directly
     from config import config
@@ -303,6 +305,104 @@ async def summarize_command(
 
     summary = generate_summary(messages_data)
     await interaction.followup.send(summary)
+
+# -----------------------------------------------------------------------------
+# Idea Sheet Commands
+# -----------------------------------------------------------------------------
+idea_group = app_commands.Group(name="idea", description="Commands for managing idea sheets.")
+
+@idea_group.command(name="create", description="Create a new idea sheet.")
+@app_commands.describe(title="The title of the new idea sheet.")
+async def idea_create(interaction: discord.Interaction, title: str):
+    """Creates a new idea sheet."""
+    try:
+        ideas.create_idea_sheet(title)
+        await interaction.response.send_message(f"✅ Idea sheet '{title}' created successfully.", ephemeral=True)
+    except (ValueError, IOError) as e:
+        await interaction.response.send_message(f"❌ Error creating idea sheet: {e}", ephemeral=True)
+
+@idea_group.command(name="list", description="List all idea sheets.")
+async def idea_list(interaction: discord.Interaction):
+    """Lists all available idea sheets."""
+    try:
+        sheet_list = ideas.list_idea_sheets()
+        if not sheet_list:
+            await interaction.response.send_message("No idea sheets found.", ephemeral=True)
+            return
+
+        # Format the list into a simple embed
+        embed = discord.Embed(title="Idea Sheets", color=discord.Color.blue())
+        embed.description = "\n".join(f"- {sheet}" for sheet in sheet_list)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Error listing idea sheets: {e}", ephemeral=True)
+
+@idea_group.command(name="view", description="View the content of an idea sheet.")
+@app_commands.describe(title="The title of the idea sheet to view.")
+async def idea_view(interaction: discord.Interaction, title: str):
+    """Views a specific idea sheet."""
+    try:
+        content = ideas.get_idea_sheet_content(title)
+        if len(content) > 1900:
+            content = content[:1900] + "..."
+        
+        embed = discord.Embed(title=title, description=content, color=discord.Color.green())
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+    except FileNotFoundError:
+        await interaction.response.send_message(f"❌ Idea sheet '{title}' not found.", ephemeral=True)
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Error viewing idea sheet: {e}", ephemeral=True)
+
+bot.tree.add_command(idea_group)
+
+# -----------------------------------------------------------------------------
+# Task Tracking Commands
+# -----------------------------------------------------------------------------
+task_group = app_commands.Group(name="todo", description="Commands for managing the team to-do list.")
+
+@task_group.command(name="add", description="Add a new task to the to-do list.")
+@app_commands.describe(description="The description of the task.")
+async def todo_add(interaction: discord.Interaction, description: str):
+    """Adds a new task."""
+    try:
+        task = tasks.add_task(description)
+        await interaction.response.send_message(f"✅ Task #{task['id']} added: '{description}'", ephemeral=True)
+    except ValueError as e:
+        await interaction.response.send_message(f"❌ Error adding task: {e}", ephemeral=True)
+
+@task_group.command(name="list", description="List all current tasks.")
+async def todo_list(interaction: discord.Interaction):
+    """Lists all tasks."""
+    task_list = tasks.list_tasks()
+    if not task_list:
+        await interaction.response.send_message("No tasks in the to-do list.", ephemeral=True)
+        return
+
+    embed = discord.Embed(title="To-Do List", color=discord.Color.orange())
+    for task in task_list:
+        status = "✅" if task["done"] else "❌"
+        embed.add_field(name=f"#{task['id']} {status}", value=task['description'], inline=False)
+        
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@task_group.command(name="done", description="Mark a task as done.")
+@app_commands.describe(task_id="The ID of the task to mark as done.")
+async def todo_done(interaction: discord.Interaction, task_id: int):
+    """Marks a task as done."""
+    task = tasks.mark_task_done(task_id)
+    if task:
+        await interaction.response.send_message(f"✅ Task #{task_id} marked as done.", ephemeral=True)
+    else:
+        await interaction.response.send_message(f"❌ Task #{task_id} not found.", ephemeral=True)
+
+@task_group.command(name="clear", description="Clear all tasks from the to-do list.")
+@commands.is_owner()
+async def todo_clear(interaction: discord.Interaction):
+    """Clears all tasks."""
+    tasks.clear_tasks()
+    await interaction.response.send_message("✅ All tasks have been cleared.", ephemeral=True)
+
+bot.tree.add_command(task_group)
 
 # -----------------------------------------------------------------------------
 # Traditional Commands
