@@ -559,9 +559,9 @@ class FileProcessor:
         from contextlib import suppress
 
         with suppress(Exception):
-            # A lightweight removal of script tags; avoid heavy deps here.
+            # Robust removal of script tags, including whitespace/newlines/attributes.
             rendered = re.sub(
-                r"<script\b[^>]*>.*?</script\s*>",
+                r"<script\b[^>]*>.*?</script(?:\s|\n|\r|\t|>)*",
                 "",
                 rendered,
                 flags=re.IGNORECASE | re.DOTALL,

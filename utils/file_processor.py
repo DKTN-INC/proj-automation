@@ -42,9 +42,9 @@ async def markdown_to_html(markdown_content: str, title: str = "Document") -> st
     rendered = template.render(title=title, content=html_content)
 
     try:
-        # Remove script tags robustly, allowing whitespace and attributes.
+        # Robust removal of script tags, including whitespace/newlines/attributes.
         rendered = re.sub(
-            r"<script\b[^>]*>.*?</script\s*>",
+            r"<script\b[^>]*>.*?</script(?:\s|\n|\r|\t|>)*",
             "",
             rendered,
             flags=re.IGNORECASE | re.DOTALL,
